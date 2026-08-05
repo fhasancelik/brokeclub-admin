@@ -95,6 +95,17 @@
   .switch.warn input:checked + .track { background: var(--red); border-color: var(--red); }
   .switch.warn input:checked + .track::after { background: #fff; }
 
+  /* notification preview */
+  .notif { display: flex; gap: 12px; align-items: flex-start; background: var(--card-alt);
+           border: 1px solid var(--border); border-radius: 18px; padding: 13px 15px; margin-top: 6px; }
+  .notif-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--accent);
+                display: grid; place-items: center; font-size: 21px; flex: none; }
+  .notif-app { font-size: 11px; letter-spacing: .6px; color: var(--dim); font-weight: 700; }
+  .notif-title { font-weight: 700; margin-top: 2px; overflow-wrap: anywhere; }
+  .notif-body { font-size: 14px; color: var(--dim); overflow-wrap: anywhere; }
+  .sent { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .sent .when { color: var(--dim); font-size: 12px; white-space: nowrap; }
+
   .banner { background: rgba(255,92,92,.12); border: 1px solid var(--red); color: var(--red);
             border-radius: 16px; padding: 13px 16px; font-weight: 700; margin-top: 16px; }
   .savebar { position: sticky; bottom: 0; margin-top: 18px; padding: 14px 0 0;
@@ -188,6 +199,36 @@
       </div>
       <label class="switch"><input type="checkbox" id="cloud_enabled"><span class="track"></span></label>
     </div>
+  </div>
+
+  <h2>Toplu bildirim</h2>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-weight:700">🔔 <span id="pushCount">—</span> cihaz bildirime açık</div>
+        <div class="muted">Bildirimi yalnızca uygulamada bildirimlere izin vermiş kullanıcılar alır.</div>
+      </div>
+    </div>
+
+    <div class="field"><label for="pushTitle">Başlık</label><input id="pushTitle" maxlength="64" placeholder="Streak'in seni özledi 🐷"></div>
+    <div class="field"><label for="pushBody">Mesaj</label><textarea id="pushBody" maxlength="240" placeholder="Bugün check-in yapmadın. Cebindeki para seni bekliyor."></textarea></div>
+
+    <label>Önizleme</label>
+    <div class="notif">
+      <div class="notif-icon">🐷</div>
+      <div style="min-width:0">
+        <div class="notif-app">BROKE CLUB <span style="font-weight:400">· şimdi</span></div>
+        <div class="notif-title" id="previewTitle">Başlık</div>
+        <div class="notif-body" id="previewBody">Mesaj</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <button class="danger" id="sendPushBtn">Herkese gönder</button>
+      <span class="muted" id="pushState"></span>
+    </div>
+
+    <div id="broadcastHistory" style="margin-top:18px"></div>
   </div>
 
   <h2>Sürüm yönetimi</h2>
@@ -400,9 +441,86 @@ async function saveConfig() {
   }
 }
 
+/* ---------- broadcast ---------- */
+function renderBroadcasts(rows) {
+  const el = $('broadcastHistory');
+  if (!rows.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<label>Son gönderimler</label>' + rows.map((b) => `<div class="sent">
+      <div style="min-width:0">
+        <div style="font-weight:700">${escapeHtml(b.title)}</div>
+        <div class="muted">${escapeHtml(b.body)}</div>
+      </div>
+      <div class="when">${b.recipients} kişi<br>${new Date(b.created_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</div>
+    </div>`).join('');
+}
+
+async function loadPush() {
+  const s = await api('/rest/v1/rpc/admin_push_summary', { method: 'POST', body: '{}' });
+  $('pushCount').textContent = nf.format(s.push_enabled);
+  renderBroadcasts(s.recent || []);
+  return s;
+}
+
+function syncPreview() {
+  $('previewTitle').textContent = $('pushTitle').value.trim() || 'Başlık';
+  $('previewBody').textContent = $('pushBody').value.trim() || 'Mesaj';
+}
+
+/** Expo delivers asynchronously; read the tickets back a few seconds after sending. */
+async function reportDelivery(broadcastId) {
+  try {
+    const res = await api('/rest/v1/rpc/admin_broadcast_status', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: broadcastId }),
+    });
+    const tickets = (res.responses || []).flatMap((r) => {
+      try { return JSON.parse(r.content)?.data ?? []; } catch { return []; }
+    });
+    if (!tickets.length) return;
+    const ok = tickets.filter((t) => t.status === 'ok').length;
+    const bad = tickets.length - ok;
+    $('pushState').textContent = `Expo yanıtı: ${ok} teslim edildi${bad ? `, ${bad} hatalı token` : ''}`;
+  } catch {
+    // Status is a nice-to-have; the send itself already succeeded.
+  }
+}
+
+async function sendBroadcast() {
+  const title = $('pushTitle').value.trim();
+  const body = $('pushBody').value.trim();
+  if (!title || !body) { $('pushState').textContent = 'Başlık ve mesaj gerekli.'; return; }
+
+  let count = '?';
+  try { count = (await loadPush()).push_enabled; } catch {}
+  if (Number(count) === 0) {
+    $('pushState').textContent = 'Bildirime açık cihaz yok — gönderilecek kimse bulunamadı.';
+    return;
+  }
+  if (!confirm(`"${title}" bildirimi ${count} kişiye gönderilecek. Bu geri alınamaz. Emin misin?`)) return;
+
+  $('sendPushBtn').disabled = true;
+  $('pushState').textContent = 'gönderiliyor…';
+  try {
+    const res = await api('/rest/v1/rpc/send_broadcast', {
+      method: 'POST',
+      body: JSON.stringify({ p_title: title, p_body: body }),
+    });
+    $('pushState').textContent = `✓ ${res.recipients} kişiye kuyruğa alındı`;
+    $('pushTitle').value = '';
+    $('pushBody').value = '';
+    syncPreview();
+    await loadPush();
+    setTimeout(() => reportDelivery(res.broadcast_id), 5000);
+  } catch (e) {
+    $('pushState').textContent = '⚠️ ' + e.message;
+  } finally {
+    $('sendPushBtn').disabled = false;
+  }
+}
+
 async function boot() {
   try {
-    await Promise.all([loadStats(), loadConfig()]);
+    await Promise.all([loadStats(), loadConfig(), loadPush()]);
   } catch (e) {
     if (String(e.message).includes('NOT_AUTHORIZED')) {
       alert('Bu hesap admin değil. Supabase → admins tablosuna e-postanı ekle.');
@@ -415,7 +533,10 @@ async function boot() {
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   clearInterval(timer);
-  timer = setInterval(() => loadStats().catch(() => {}), REFRESH_MS);
+  timer = setInterval(() => {
+    loadStats().catch(() => {});
+    loadPush().catch(() => {});
+  }, REFRESH_MS);
 }
 
 function logout() {
@@ -442,6 +563,9 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 
 $('maintenance').addEventListener('change', syncMaintenanceUi);
+$('pushTitle').addEventListener('input', syncPreview);
+$('pushBody').addEventListener('input', syncPreview);
+$('sendPushBtn').addEventListener('click', sendBroadcast);
 $('saveBtn').addEventListener('click', saveConfig);
 $('refreshBtn').addEventListener('click', () => loadStats().catch((e) => { $('lastUpdate').textContent = '⚠️ ' + e.message; }));
 $('logoutBtn').addEventListener('click', logout);
