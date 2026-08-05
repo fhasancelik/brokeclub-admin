@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Broke Club — Kontrol Paneli</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐷</text></svg>">
+<style>
+  :root {
+    --bg: #0D0D11; --card: #17171E; --card-alt: #1E1E27; --border: #2A2A35;
+    --text: #F4F4F6; --dim: #9B9BA8; --accent: #C8FF4D; --pink: #FF7AC6;
+    --red: #FF5C5C; --green: #5CE08A; --yellow: #FFD84D;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 18px 80px; }
+  h1 { font-size: 26px; letter-spacing: -0.8px; margin: 0; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--dim); margin: 34px 0 14px; }
+  a { color: var(--accent); }
+  button {
+    font: inherit; font-weight: 700; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--card-alt); color: var(--text); padding: 11px 18px; cursor: pointer;
+    transition: transform .08s ease, filter .15s ease;
+  }
+  button:hover { filter: brightness(1.15); }
+  button:active { transform: scale(.98); }
+  button.primary { background: var(--accent); color: #0D0D11; border-color: var(--accent); }
+  button.danger { background: var(--red); color: #fff; border-color: var(--red); }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input, textarea {
+    font: inherit; width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px;
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  textarea { resize: vertical; min-height: 74px; line-height: 1.5; }
+  label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 6px; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 18px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .grid { display: grid; gap: 12px; }
+  .field { margin-bottom: 14px; }
+
+  /* login */
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  #login .card { width: 100%; max-width: 380px; text-align: center; }
+  .pig { font-size: 58px; line-height: 1; }
+  .muted { color: var(--dim); font-size: 13px; }
+  .err { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 4px; }
+
+  /* header */
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .live { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--dim); }
+  .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--green); box-shadow: 0 0 0 0 rgba(92,224,138,.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(92,224,138,0); } 100% { box-shadow: 0 0 0 0 rgba(92,224,138,0); } }
+
+  /* stats */
+  .stats { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .stat .value { font-size: 34px; font-weight: 800; letter-spacing: -1.4px; }
+  .stat .label { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .8px; margin-top: 2px; }
+  .stat .sub { font-size: 12px; color: var(--green); margin-top: 6px; font-weight: 700; }
+
+  /* chart */
+  .chart { display: flex; align-items: flex-end; gap: 6px; height: 150px; margin-top: 6px; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; height: 100%; }
+  .chart .bar { border-radius: 5px 5px 2px 2px; min-height: 2px; transition: height .4s ease; }
+  .chart .bar.u { background: var(--pink); }
+  .chart .bar.c { background: var(--accent); }
+  .chart .day { font-size: 9px; color: var(--dim); text-align: center; margin-top: 6px; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--dim); margin-top: 12px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* table */
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--dim); padding: 8px 12px; }
+  td { padding: 11px 12px; border-top: 1px solid var(--border); white-space: nowrap; }
+  code.pill { background: var(--card-alt); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; font-size: 12px; }
+
+  /* toggle */
+  .toggle { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .toggle:first-of-type { border-top: 0; }
+  .toggle .t { font-weight: 700; }
+  .toggle .d { font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .switch { position: relative; width: 52px; height: 30px; flex: none; }
+  .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .track { position: absolute; inset: 0; border-radius: 99px; background: var(--card-alt); border: 1px solid var(--border); pointer-events: none; transition: background .2s; }
+  .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 99px; background: var(--dim); transition: transform .2s, background .2s; }
+  .switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(22px); background: #0D0D11; }
+  .switch.warn input:checked + .track { background: var(--red); border-color: var(--red); }
+  .switch.warn input:checked + .track::after { background: #fff; }
+
+  .banner { background: rgba(255,92,92,.12); border: 1px solid var(--red); color: var(--red);
+            border-radius: 16px; padding: 13px 16px; font-weight: 700; margin-top: 16px; }
+  .savebar { position: sticky; bottom: 0; margin-top: 18px; padding: 14px 0 0;
+             background: linear-gradient(transparent, var(--bg) 30%); display: flex; gap: 12px; align-items: center; }
+  .hidden { display: none !important; }
+  @media (max-width: 560px) { .stat .value { font-size: 27px; } .wrap { padding-top: 16px; } }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="login">
+  <form class="card" id="loginForm">
+    <div class="pig">🐷</div>
+    <h1 style="margin:10px 0 2px">broke club</h1>
+    <p class="muted" style="margin:0 0 20px">kontrol paneli</p>
+    <div class="field" style="text-align:left">
+      <label for="email">E-posta</label>
+      <input id="email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field" style="text-align:left">
+      <label for="password">Şifre</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="primary" style="width:100%" id="loginBtn">Giriş yap</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<!-- ============ DASHBOARD ============ -->
+<section id="app" class="wrap hidden">
+  <header>
+    <div>
+      <h1>🐷 broke club</h1>
+      <div class="live"><span class="dot"></span><span id="lastUpdate">yükleniyor…</span></div>
+    </div>
+    <div class="row">
+      <button class="ghost" id="refreshBtn">Yenile</button>
+      <button class="ghost" id="logoutBtn">Çıkış</button>
+    </div>
+  </header>
+
+  <div id="maintenanceBanner" class="banner hidden">⚠️ Bakım modu AÇIK — uygulama şu anda herkese kapalı.</div>
+
+  <h2>Canlı sayaçlar</h2>
+  <div class="grid stats" id="stats"></div>
+
+  <h2>Son 14 gün</h2>
+  <div class="card">
+    <div class="chart" id="chart"></div>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--pink)"></i>Yeni kullanıcı</span>
+      <span><i class="swatch" style="background:var(--accent)"></i>Check-in</span>
+    </div>
+  </div>
+
+  <h2>Son challenge'lar</h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Challenge</th><th>Kod</th><th>Kişi</th><th>Günlük</th><th>Süre</th><th>Oluşturuldu</th></tr></thead>
+      <tbody id="recent"></tbody>
+    </table>
+  </div>
+
+  <h2>Uzaktan kontrol</h2>
+  <div class="card">
+    <div class="toggle">
+      <div>
+        <div class="t">Bakım modu</div>
+        <div class="d">Açıldığında uygulama herkeste tam ekran bakım mesajıyla kilitlenir.</div>
+      </div>
+      <label class="switch warn"><input type="checkbox" id="maintenance"><span class="track"></span></label>
+    </div>
+    <div id="maintenanceFields" class="hidden" style="padding-top:6px">
+      <div class="field"><label for="maintenance_title">Bakım başlığı</label><input id="maintenance_title"></div>
+      <div class="field"><label for="maintenance_message">Bakım mesajı</label><textarea id="maintenance_message"></textarea></div>
+    </div>
+
+    <div class="toggle">
+      <div>
+        <div class="t">Paywall açık</div>
+        <div class="d">Kapatılırsa Pro duvarı kalkar, herkes sınırsız challenge açabilir (IAP bozulursa acil çıkış).</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="paywall_enabled"><span class="track"></span></label>
+    </div>
+
+    <div class="toggle">
+      <div>
+        <div class="t">Bulut özellikleri açık</div>
+        <div class="d">Arkadaş/sıralama katmanı. Kapatılırsa uygulama yalnız-yerel çalışır.</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="cloud_enabled"><span class="track"></span></label>
+    </div>
+  </div>
+
+  <h2>Sürüm yönetimi</h2>
+  <div class="card">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+      <div class="field" style="margin:0">
+        <label for="min_supported_version">Zorunlu minimum sürüm</label>
+        <input id="min_supported_version" placeholder="1.0.0">
+        <div class="muted" style="margin-top:6px">Bundan eskisi açılışta kilitlenir.</div>
+      </div>
+      <div class="field" style="margin:0">
+        <label for="latest_version">Mağazadaki son sürüm</label>
+        <input id="latest_version" placeholder="1.1.0">
+        <div class="muted" style="margin-top:6px">Eski sürümlere kapatılabilir uyarı gösterilir.</div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:14px"><label for="force_update_title">Güncelleme başlığı</label><input id="force_update_title"></div>
+    <div class="field"><label for="force_update_message">Zorunlu güncelleme mesajı</label><textarea id="force_update_message"></textarea></div>
+    <div class="field"><label for="soft_update_message">Yumuşak uyarı mesajı</label><textarea id="soft_update_message"></textarea></div>
+    <div class="field"><label for="store_url">App Store bağlantısı</label><input id="store_url"></div>
+    <div class="field" style="margin:0">
+      <label for="announcement">Duyuru (boş bırak = duyuru yok)</label>
+      <textarea id="announcement" placeholder="Uygulama açılınca bir kez gösterilir."></textarea>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="ghost" id="forceLatestBtn">Son sürümü zorunlu yap</button>
+    </div>
+  </div>
+
+  <div class="savebar">
+    <button class="primary" id="saveBtn">Değişiklikleri kaydet</button>
+    <span class="muted" id="saveState"></span>
+  </div>
+</section>
+
+<script>
+const SUPABASE_URL = 'https://fqhjmgaadzzerxkzjqky.supabase.co';
+const ANON_KEY = 'sb_publishable_SxTaU4Y6zKLo0kZwO8riYg_RseGKTJB';
+const REFRESH_MS = 15000;
+
+const $ = (id) => document.getElementById(id);
+const TEXT_FIELDS = ['maintenance_title','maintenance_message','min_supported_version','force_update_title',
+                     'force_update_message','latest_version','soft_update_message','announcement','store_url'];
+const FLAG_FIELDS = ['maintenance','paywall_enabled','cloud_enabled'];
+
+let session = null;
+let timer = null;
+
+/* ---------- auth ---------- */
+function saveSession(s) {
+  session = s;
+  localStorage.setItem('bc_admin_session', JSON.stringify(s));
+}
+function loadSession() {
+  try { session = JSON.parse(localStorage.getItem('bc_admin_session') || 'null'); } catch { session = null; }
+  return session;
+}
+function clearSession() {
+  session = null;
+  localStorage.removeItem('bc_admin_session');
+}
+
+async function signIn(email, password) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Giriş başarısız');
+  saveSession(data);
+  return data;
+}
+
+async function refreshToken() {
+  if (!session?.refresh_token) return false;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: session.refresh_token }),
+  });
+  if (!res.ok) return false;
+  saveSession(await res.json());
+  return true;
+}
+
+/** Authenticated request that transparently retries once after refreshing the token. */
+async function api(path, options = {}, retry = true) {
+  const res = await fetch(`${SUPABASE_URL}${path}`, {
+    ...options,
+    headers: {
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${session?.access_token}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  if (res.status === 401 && retry && (await refreshToken())) return api(path, options, false);
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(body?.message || body?.error || `HTTP ${res.status}`);
+  return body;
+}
+
+/* ---------- rendering ---------- */
+const nf = new Intl.NumberFormat('tr-TR');
+const money = (n) => '$' + nf.format(Math.round(Number(n) || 0));
+
+function statCard(value, label, sub, tint) {
+  return `<div class="card stat">
+    <div class="value" ${tint ? `style="color:${tint}"` : ''}>${value}</div>
+    <div class="label">${label}</div>
+    ${sub ? `<div class="sub">${sub}</div>` : ''}
+  </div>`;
+}
+
+function renderStats(s) {
+  const done = Number(s.checkins_held) + Number(s.checkins_slipped);
+  const rate = done ? Math.round((Number(s.checkins_held) / done) * 100) : 0;
+  $('stats').innerHTML = [
+    statCard(nf.format(s.users), 'Kullanıcı', s.users_today > 0 ? `bugün +${s.users_today}` : '', 'var(--pink)'),
+    statCard(nf.format(s.challenges), 'Challenge', `${s.challenges_active} aktif`),
+    statCard(nf.format(s.checkins), 'Check-in', s.checkins_today > 0 ? `bugün +${s.checkins_today}` : ''),
+    statCard(money(s.money_saved), 'Biriktirilen', '', 'var(--accent)'),
+    statCard(nf.format(s.challenges_multiplayer), 'Arkadaşlı challenge', `${s.participants} katılım`),
+    statCard('%' + rate, 'Dayanma oranı', `${nf.format(s.checkins_slipped)} kayma`, rate >= 70 ? 'var(--green)' : 'var(--yellow)'),
+  ].join('');
+}
+
+function renderChart(series) {
+  const max = Math.max(1, ...series.map((d) => Math.max(d.users, d.checkins)));
+  $('chart').innerHTML = series.map((d) => {
+    const day = new Date(d.day);
+    const label = `${day.getDate()}.${day.getMonth() + 1}`;
+    return `<div class="col" title="${label} · ${d.users} kullanıcı, ${d.checkins} check-in">
+      <div class="bar c" style="height:${(d.checkins / max) * 100}%"></div>
+      <div class="bar u" style="height:${(d.users / max) * 100}%"></div>
+      <div class="day">${label}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecent(rows) {
+  if (!rows.length) {
+    $('recent').innerHTML = `<tr><td colspan="6" class="muted">Henüz challenge yok.</td></tr>`;
+    return;
+  }
+  $('recent').innerHTML = rows.map((c) => `<tr>
+    <td>${c.emoji} ${escapeHtml(c.title)}</td>
+    <td><code class="pill">${escapeHtml(c.join_code)}</code></td>
+    <td>${c.members}</td>
+    <td>${money(c.daily_amount)}</td>
+    <td>${c.duration_days} gün</td>
+    <td class="muted">${new Date(c.created_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</td>
+  </tr>`).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fillConfig(c) {
+  TEXT_FIELDS.forEach((f) => { $(f).value = c[f] ?? ''; });
+  FLAG_FIELDS.forEach((f) => { $(f).checked = Boolean(c[f]); });
+  syncMaintenanceUi();
+}
+
+function syncMaintenanceUi() {
+  const on = $('maintenance').checked;
+  $('maintenanceFields').classList.toggle('hidden', !on);
+  $('maintenanceBanner').classList.toggle('hidden', !on);
+}
+
+/* ---------- data ---------- */
+async function loadStats() {
+  const stats = await api('/rest/v1/rpc/admin_stats', { method: 'POST', body: '{}' });
+  renderStats(stats);
+  renderChart(stats.series);
+  renderRecent(stats.recent_challenges);
+  $('lastUpdate').textContent = 'canlı · son güncelleme ' + new Date().toLocaleTimeString('tr-TR');
+}
+
+async function loadConfig() {
+  const rows = await api('/rest/v1/app_config?id=eq.1&select=*');
+  if (rows?.[0]) fillConfig(rows[0]);
+}
+
+async function saveConfig() {
+  const payload = {};
+  TEXT_FIELDS.forEach((f) => { payload[f] = $(f).value.trim(); });
+  FLAG_FIELDS.forEach((f) => { payload[f] = $(f).checked; });
+
+  if (payload.maintenance && !confirm('Bakım modu AÇILIYOR. Uygulama tüm kullanıcılara kapanacak. Emin misin?')) return;
+
+  $('saveBtn').disabled = true;
+  $('saveState').textContent = 'kaydediliyor…';
+  try {
+    const rows = await api('/rest/v1/app_config?id=eq.1', {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(payload),
+    });
+    if (!rows?.length) throw new Error('Yetki yok — bu hesap admins listesinde değil.');
+    fillConfig(rows[0]);
+    $('saveState').textContent = 'kaydedildi ✓ ' + new Date().toLocaleTimeString('tr-TR');
+  } catch (e) {
+    $('saveState').textContent = '⚠️ ' + e.message;
+  } finally {
+    $('saveBtn').disabled = false;
+  }
+}
+
+async function boot() {
+  try {
+    await Promise.all([loadStats(), loadConfig()]);
+  } catch (e) {
+    if (String(e.message).includes('NOT_AUTHORIZED')) {
+      alert('Bu hesap admin değil. Supabase → admins tablosuna e-postanı ekle.');
+      logout();
+      return;
+    }
+    $('lastUpdate').textContent = '⚠️ ' + e.message;
+    return;
+  }
+  $('login').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  clearInterval(timer);
+  timer = setInterval(() => loadStats().catch(() => {}), REFRESH_MS);
+}
+
+function logout() {
+  clearSession();
+  clearInterval(timer);
+  $('app').classList.add('hidden');
+  $('login').classList.remove('hidden');
+}
+
+/* ---------- wiring ---------- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('loginErr').textContent = '';
+  $('loginBtn').disabled = true;
+  try {
+    await signIn($('email').value.trim(), $('password').value);
+    $('password').value = '';
+    await boot();
+  } catch (err) {
+    $('loginErr').textContent = err.message;
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+});
+
+$('maintenance').addEventListener('change', syncMaintenanceUi);
+$('saveBtn').addEventListener('click', saveConfig);
+$('refreshBtn').addEventListener('click', () => loadStats().catch((e) => { $('lastUpdate').textContent = '⚠️ ' + e.message; }));
+$('logoutBtn').addEventListener('click', logout);
+$('forceLatestBtn').addEventListener('click', () => {
+  $('min_supported_version').value = $('latest_version').value;
+  $('saveState').textContent = 'kaydetmeyi unutma ↓';
+});
+
+if (loadSession()) boot();
+</script>
+</body>
+</html>
