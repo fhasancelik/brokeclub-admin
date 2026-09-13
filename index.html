@@ -201,6 +201,156 @@
     </div>
   </div>
 
+  <h2>Reklamlar (AdMob)</h2>
+  <div class="card">
+    <div class="toggle">
+      <div>
+        <div class="t">Reklamlar açık</div>
+        <div class="d">Kapatılırsa ücretsiz üyeler de reklam görmez, SDK hiç başlatılmaz (acil kapatma). Pro üyeler hiçbir zaman reklam görmez.</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="ads_enabled"><span class="track"></span></label>
+    </div>
+    <div id="adsMissing" class="muted hidden" style="margin:6px 0 10px">⚠️ Veritabanında <code>ads</code> sütunu yok — önce <code>brokeclub/supabase/admin.sql</code> dosyasının sonundaki bloğu Supabase SQL Editor'da çalıştır. O zamana kadar uygulama yerleşik varsayılanları kullanır.</div>
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:10px">
+      <div class="field" style="margin:0">
+        <label for="ads_grace_days">İlk reklamsız gün sayısı</label>
+        <input id="ads_grace_days" type="number" min="0" max="30" step="1">
+        <div class="muted" style="margin-top:6px">Onboarding koruması. 0 = ilk günden itibaren.</div>
+      </div>
+      <div class="field" style="margin:0">
+        <label for="ads_max_content_rating">Maks. reklam içerik derecesi</label>
+        <select id="ads_max_content_rating"><option value="G">G — herkes</option><option value="PG">PG — ebeveyn rehberliği</option><option value="T">T — genç</option><option value="MA">MA — yetişkin</option></select>
+        <div class="muted" style="margin-top:6px">Mağaza yaş sınıfını aşma; PG güvenli varsayılan.</div>
+      </div>
+    </div>
+
+    <div class="toggle" style="margin-top:8px">
+      <div><div class="t">iOS izleme izni (ATT) sor</div><div class="d">İlk reklamdan önce Apple'ın izleme diyaloğu. Evet diyenlerde eCPM ~%30 daha yüksek.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_att_prompt"><span class="track"></span></label>
+    </div>
+
+    <h3 style="margin:18px 0 6px;font-size:14px">Banner</h3>
+    <div class="toggle">
+      <div><div class="t">Banner açık</div><div class="d">Club ve Stats sekmelerinin altında sabit banner.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_banner_enabled"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Büyük banner</div><div class="d">Google'ın daha yüksek "large anchored" boyutu: daha çok gelir, daha az ekran.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_banner_large"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Koç sekmesinde banner</div><div class="d">Sadece boş (idle) ekranda; SOS akışında asla.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_banner_coach"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Challenge detayında banner</div><div class="d">Detay ekranının altında sabit banner.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_banner_detail"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Oyun ekranında banner (v1.6)</div><div class="d">Urge timer oyununun oyun alanı altında sabit banner; oturumlar 3-5 dk.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_banner_game"><span class="track"></span></label>
+    </div>
+    <h3 style="margin:18px 0 6px;font-size:14px">Satır içi dikdörtgen (300×250) ve yerel reklam</h3>
+    <div class="toggle">
+      <div><div class="t">MREC açık</div><div class="d">Kaydırılan içeriğin içinde 300×250; banner'ın 3-6 katı eCPM. Aynı banner birimini kullanır.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_mrec_enabled"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Stats'ta MREC</div><div class="d">Haftalık grafiğin altında.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_mrec_stats"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Yerel (native) reklam açık</div><div class="d">Challenge kartı gibi görünen akış içi reklam; "Native advanced" birimi gerekir.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_native_enabled"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Club sekmesinde native kart</div><div class="d">Bugün listesinin altında.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_native_club"><span class="track"></span></label>
+    </div>
+
+    <h3 style="margin:18px 0 6px;font-size:14px">Geçiş reklamı (interstitial)</h3>
+    <div class="toggle">
+      <div><div class="t">Geçiş reklamı açık</div><div class="d">Check-in sonrası ve SOS sonuç ekranından çıkışta.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_interstitial_enabled"><span class="track"></span></label>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="field" style="margin:0"><label for="ads_interstitial_daily_cap">Günlük tavan</label><input id="ads_interstitial_daily_cap" type="number" min="0" max="50" step="1"></div>
+      <div class="field" style="margin:0"><label for="ads_interstitial_min_gap_min">İki tam ekran arası (dk)</label><input id="ads_interstitial_min_gap_min" type="number" min="0" max="1440" step="1"></div>
+    </div>
+    <div class="toggle" style="margin-top:8px">
+      <div><div class="t">Check-in sonrası</div><div class="d">Varsa kutlama kartı kapandıktan sonra.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_interstitial_after_checkin"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">SOS sonrası</div><div class="d">Kullanıcı "direndim/yenildim" ekranını kapatınca.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_interstitial_after_sos"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">"Bank it" sonrası</div><div class="d">Haftalık pot birikime aktarıldı diye onaylanınca.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_interstitial_after_bank"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Park sonuçlanınca</div><div class="d">Park edilen istek bırakılınca/alınınca.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_interstitial_after_park"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Özet (Wrapped) kapanınca</div><div class="d">Aylık/yıllık özet kartları kapatılınca.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_interstitial_after_recap"><span class="track"></span></label>
+    </div>
+
+    <h3 style="margin:18px 0 6px;font-size:14px">Uygulama açılış reklamı (app open)</h3>
+    <div class="toggle">
+      <div><div class="t">Açılış reklamı açık</div><div class="d">Arka plandan dönüşte. Soğuk açılışta gösterilmez.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_app_open_enabled"><span class="track"></span></label>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="field" style="margin:0"><label for="ads_app_open_daily_cap">Günlük tavan</label><input id="ads_app_open_daily_cap" type="number" min="0" max="50" step="1"></div>
+      <div class="field" style="margin:0"><label for="ads_app_open_min_background_min">Min. arka plan süresi (dk)</label><input id="ads_app_open_min_background_min" type="number" min="0" max="1440" step="1"></div>
+    </div>
+
+    <h3 style="margin:18px 0 6px;font-size:14px">Ödüllü reklam (rewarded)</h3>
+    <div class="toggle">
+      <div><div class="t">Ödüllü reklam açık</div><div class="d">Kullanıcının kendi tercihiyle izlediği, en yüksek eCPM'li format.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_rewarded_enabled"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">+1 SOS için reklam</div><div class="d">Günlük 3 ücretsiz SOS bitince paywall'dan önce teklif edilir.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_rewarded_sos_bonus"><span class="track"></span></label>
+    </div>
+    <div class="field" style="max-width:220px"><label for="ads_rewarded_sos_daily_cap">Günde en fazla bonus SOS</label><input id="ads_rewarded_sos_daily_cap" type="number" min="0" max="50" step="1"></div>
+    <div class="toggle">
+      <div><div class="t">Seri dondurma için reklam</div><div class="d">Dün kaçırıldıysa "reklam izle, dünü dondur" kartı (haftada 1, challenge başına).</div></div>
+      <label class="switch"><input type="checkbox" id="ads_rewarded_streak_freeze"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Oyunda +1 can için reklam (v1.6)</div><div class="d">Urge timer oyununda "game over" kartında "reklam izle · +1 can" (tur başına 1).</div></div>
+      <label class="switch"><input type="checkbox" id="ads_rewarded_game_life"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Kedi parası için reklam</div><div class="d">Kostüm/oda dükkânında "reklam izle · +N 🪙".</div></div>
+      <label class="switch"><input type="checkbox" id="ads_rewarded_coins_bonus"><span class="track"></span></label>
+    </div>
+    <div class="row" style="gap:12px">
+      <div class="field" style="margin:0"><label for="ads_rewarded_coins_per_ad">Reklam başına coin</label><input id="ads_rewarded_coins_per_ad" type="number" min="1" max="1000" step="1"></div>
+      <div class="field" style="margin:0"><label for="ads_rewarded_coins_daily_cap">Günde en fazla</label><input id="ads_rewarded_coins_daily_cap" type="number" min="0" max="50" step="1"></div>
+    </div>
+    <h3 style="margin:18px 0 6px;font-size:14px">Ödüllü interstitial (check-in bonusu)</h3>
+    <div class="toggle">
+      <div><div class="t">Ödüllü interstitial açık</div><div class="d">Check-in sonrası "kısa reklam = +N coin" teklifi; reddedilirse normal interstitial. "Rewarded interstitial" birimi gerekir.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_ri_enabled"><span class="track"></span></label>
+    </div>
+    <div class="toggle">
+      <div><div class="t">Check-in sonrası teklif</div><div class="d">Sadece "direndim" check-in'lerinde.</div></div>
+      <label class="switch"><input type="checkbox" id="ads_ri_after_checkin"><span class="track"></span></label>
+    </div>
+    <div class="row" style="gap:12px">
+      <div class="field" style="margin:0"><label for="ads_ri_daily_cap">Günlük tavan</label><input id="ads_ri_daily_cap" type="number" min="0" max="50" step="1"></div>
+      <div class="field" style="margin:0"><label for="ads_ri_coins">Bonus coin</label><input id="ads_ri_coins" type="number" min="0" max="1000" step="1"></div>
+    </div>
+    <div class="muted" style="margin-top:10px">Gelir hesabı ve kurulum: <code>docs/ADS-REVENUE-MODEL.md</code>. Varsayılanlar ABD eCPM'leriyle aktif ücretsiz kullanıcı başına ~1 $/ay hedefler.</div>
+  </div>
+
   <h2>Toplu bildirim</h2>
   <div class="card">
     <div class="row" style="justify-content:space-between;margin-bottom:16px">
@@ -249,6 +399,7 @@
     <div class="field"><label for="force_update_message">Zorunlu güncelleme mesajı</label><textarea id="force_update_message"></textarea></div>
     <div class="field"><label for="soft_update_message">Yumuşak uyarı mesajı</label><textarea id="soft_update_message"></textarea></div>
     <div class="field"><label for="store_url">App Store bağlantısı</label><input id="store_url"></div>
+    <div class="field"><label for="store_url_android">Play Store bağlantısı</label><input id="store_url_android"></div>
     <div class="field" style="margin:0">
       <label for="announcement">Duyuru (boş bırak = duyuru yok)</label>
       <textarea id="announcement" placeholder="Uygulama açılınca bir kez gösterilir."></textarea>
@@ -271,8 +422,69 @@ const REFRESH_MS = 15000;
 
 const $ = (id) => document.getElementById(id);
 const TEXT_FIELDS = ['maintenance_title','maintenance_message','min_supported_version','force_update_title',
-                     'force_update_message','latest_version','soft_update_message','announcement','store_url'];
+                     'force_update_message','latest_version','soft_update_message','announcement','store_url',
+                     'store_url_android'];
 const FLAG_FIELDS = ['maintenance','paywall_enabled','cloud_enabled'];
+
+/* Reklam ayarları: app_config.ads (jsonb). Uygulamadaki src/lib/adsConfig.ts ile aynı şema. */
+const ADS_DEFAULTS = {
+  enabled: true, grace_days: 1, att_prompt: true, max_content_rating: 'PG',
+  banner: { enabled: true, large: false, coach: true, detail: true, game: true },
+  mrec: { enabled: true, stats: true },
+  native: { enabled: true, club: true },
+  interstitial: { enabled: true, daily_cap: 4, min_gap_min: 10, after_checkin: true, after_sos: true, after_bank: true, after_park: true, after_recap: true },
+  app_open: { enabled: true, daily_cap: 3, min_background_min: 3 },
+  rewarded: { enabled: true, sos_bonus: true, sos_daily_cap: 3, streak_freeze: true, coins_bonus: true, coins_per_ad: 25, coins_daily_cap: 3, game_life: true },
+  rewarded_interstitial: { enabled: true, after_checkin: true, daily_cap: 2, coins: 10 },
+};
+// element id → [json yolu, tip]
+const ADS_FIELDS = {
+  ads_enabled: ['enabled', 'bool'], ads_grace_days: ['grace_days', 'num'],
+  ads_att_prompt: ['att_prompt', 'bool'], ads_max_content_rating: ['max_content_rating', 'str'],
+  ads_banner_enabled: ['banner.enabled', 'bool'], ads_banner_large: ['banner.large', 'bool'],
+  ads_interstitial_enabled: ['interstitial.enabled', 'bool'], ads_interstitial_daily_cap: ['interstitial.daily_cap', 'num'],
+  ads_interstitial_min_gap_min: ['interstitial.min_gap_min', 'num'],
+  ads_interstitial_after_checkin: ['interstitial.after_checkin', 'bool'], ads_interstitial_after_sos: ['interstitial.after_sos', 'bool'],
+  ads_app_open_enabled: ['app_open.enabled', 'bool'], ads_app_open_daily_cap: ['app_open.daily_cap', 'num'],
+  ads_app_open_min_background_min: ['app_open.min_background_min', 'num'],
+  ads_rewarded_enabled: ['rewarded.enabled', 'bool'], ads_rewarded_sos_bonus: ['rewarded.sos_bonus', 'bool'],
+  ads_rewarded_sos_daily_cap: ['rewarded.sos_daily_cap', 'num'], ads_rewarded_streak_freeze: ['rewarded.streak_freeze', 'bool'],
+  // v1.5
+  ads_banner_coach: ['banner.coach', 'bool'], ads_banner_detail: ['banner.detail', 'bool'], ads_banner_game: ['banner.game', 'bool'],
+  ads_mrec_enabled: ['mrec.enabled', 'bool'], ads_mrec_stats: ['mrec.stats', 'bool'],
+  ads_native_enabled: ['native.enabled', 'bool'], ads_native_club: ['native.club', 'bool'],
+  ads_interstitial_after_bank: ['interstitial.after_bank', 'bool'], ads_interstitial_after_park: ['interstitial.after_park', 'bool'],
+  ads_interstitial_after_recap: ['interstitial.after_recap', 'bool'],
+  ads_rewarded_coins_bonus: ['rewarded.coins_bonus', 'bool'], ads_rewarded_coins_per_ad: ['rewarded.coins_per_ad', 'num'],
+  ads_rewarded_coins_daily_cap: ['rewarded.coins_daily_cap', 'num'], ads_rewarded_game_life: ['rewarded.game_life', 'bool'],
+  ads_ri_enabled: ['rewarded_interstitial.enabled', 'bool'], ads_ri_after_checkin: ['rewarded_interstitial.after_checkin', 'bool'],
+  ads_ri_daily_cap: ['rewarded_interstitial.daily_cap', 'num'], ads_ri_coins: ['rewarded_interstitial.coins', 'num'],
+};
+let adsColumnPresent = false;
+const getPath = (o, path) => path.split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : undefined), o);
+const setPath = (o, path, v) => { const ks = path.split('.'); let cur = o; ks.slice(0, -1).forEach((k) => { cur[k] = cur[k] && typeof cur[k] === 'object' ? cur[k] : {}; cur = cur[k]; }); cur[ks[ks.length - 1]] = v; };
+
+function fillAds(ads) {
+  const src = ads && typeof ads === 'object' ? ads : {};
+  Object.entries(ADS_FIELDS).forEach(([id, [path, type]]) => {
+    const el = $(id);
+    let v = getPath(src, path);
+    if (v === undefined || v === null) v = getPath(ADS_DEFAULTS, path);
+    if (type === 'bool') el.checked = Boolean(v);
+    else el.value = String(v);
+  });
+}
+
+function readAds() {
+  const out = JSON.parse(JSON.stringify(ADS_DEFAULTS));
+  Object.entries(ADS_FIELDS).forEach(([id, [path, type]]) => {
+    const el = $(id);
+    if (type === 'bool') setPath(out, path, el.checked);
+    else if (type === 'num') { const n = parseFloat(el.value); setPath(out, path, Number.isFinite(n) ? Math.max(0, n) : getPath(ADS_DEFAULTS, path)); }
+    else setPath(out, path, el.value);
+  });
+  return out;
+}
 
 let session = null;
 let timer = null;
@@ -393,6 +605,9 @@ function escapeHtml(s) {
 function fillConfig(c) {
   TEXT_FIELDS.forEach((f) => { $(f).value = c[f] ?? ''; });
   FLAG_FIELDS.forEach((f) => { $(f).checked = Boolean(c[f]); });
+  adsColumnPresent = Object.prototype.hasOwnProperty.call(c, 'ads');
+  $('adsMissing').classList.toggle('hidden', adsColumnPresent);
+  fillAds(c.ads);
   syncMaintenanceUi();
 }
 
@@ -420,6 +635,8 @@ async function saveConfig() {
   const payload = {};
   TEXT_FIELDS.forEach((f) => { payload[f] = $(f).value.trim(); });
   FLAG_FIELDS.forEach((f) => { payload[f] = $(f).checked; });
+  // Sütun yoksa PATCH'e eklemek tüm kaydı düşürür; o zaman reklam alanları atlanır.
+  if (adsColumnPresent) payload.ads = readAds();
 
   if (payload.maintenance && !confirm('Bakım modu AÇILIYOR. Uygulama tüm kullanıcılara kapanacak. Emin misin?')) return;
 
