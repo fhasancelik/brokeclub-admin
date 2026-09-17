@@ -162,6 +162,17 @@
     </div>
   </div>
 
+  <h2>Kullanıcılar <span id="usersCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
+  <div class="card scroll">
+    <div class="muted" style="margin-bottom:10px">
+      Pro durumu uygulamadan bildirilir. "—" görünenler henüz bunu bildiren bir sürüme geçmemiş kullanıcılardır.
+    </div>
+    <table>
+      <thead><tr><th>Kullanıcı</th><th>Pro</th><th>Challenge</th><th>Check-in</th><th>Direndi</th><th>Biriktirdi</th><th>Son hareket</th><th>Katıldı</th></tr></thead>
+      <tbody id="users"></tbody>
+    </table>
+  </div>
+
   <h2>Son challenge'lar</h2>
   <div class="card scroll">
     <table>
@@ -598,6 +609,34 @@ function renderRecent(rows) {
   </tr>`).join('');
 }
 
+function renderUsers(rows) {
+  const pro = rows.filter((u) => u.is_pro === true).length;
+  const known = rows.filter((u) => u.is_pro !== null && u.is_pro !== undefined).length;
+  $('usersCount').textContent =
+    `· ${rows.length} kişi · ${pro} Pro` + (known < rows.length ? ` · ${rows.length - known} bilinmiyor` : '');
+  if (!rows.length) {
+    $('users').innerHTML = `<tr><td colspan="8" class="muted">Henüz kullanıcı yok.</td></tr>`;
+    return;
+  }
+  const when = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  $('users').innerHTML = rows.map((u) => {
+    const badge =
+      u.is_pro === true ? `<span class="pill" style="background:var(--accent);color:#0D0D11">PRO</span>`
+      : u.is_pro === false ? `<span class="muted">ücretsiz</span>`
+      : `<span class="muted">—</span>`;
+    return `<tr>
+      <td>${escapeHtml(u.name || 'Anonim')}<div class="muted" style="font-size:11px">${escapeHtml(String(u.id).slice(0, 8))}</div></td>
+      <td>${badge}</td>
+      <td>${u.challenges}</td>
+      <td>${u.checkins}</td>
+      <td>${u.held}</td>
+      <td>${money(u.saved)}</td>
+      <td class="muted">${when(u.last_checkin)}</td>
+      <td class="muted">${when(u.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -623,6 +662,14 @@ async function loadStats() {
   renderStats(stats);
   renderChart(stats.series);
   renderRecent(stats.recent_challenges);
+  // The user list is a separate RPC so an older database (without it) still shows stats.
+  try {
+    const users = await api('/rest/v1/rpc/admin_users', { method: 'POST', body: '{}' });
+    renderUsers(users || []);
+  } catch {
+    $('usersCount').textContent = '· liste yok — supabase/admin-users.sql çalıştırılmalı';
+    $('users').innerHTML = `<tr><td colspan="8" class="muted">admin_users() fonksiyonu veritabanında yok.</td></tr>`;
+  }
   $('lastUpdate').textContent = 'canlı · son güncelleme ' + new Date().toLocaleTimeString('tr-TR');
 }
 
