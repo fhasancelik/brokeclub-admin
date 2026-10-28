@@ -110,6 +110,29 @@
             border-radius: 16px; padding: 13px 16px; font-weight: 700; margin-top: 16px; }
   .savebar { position: sticky; bottom: 0; margin-top: 18px; padding: 14px 0 0;
              background: linear-gradient(transparent, var(--bg) 30%); display: flex; gap: 12px; align-items: center; }
+  /* funnel */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 8px 14px; background: transparent; color: var(--dim); }
+  .seg button.on { background: var(--accent); color: #0D0D11; }
+  select { font: inherit; background: var(--card-alt); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; }
+  .fstep { display: grid; grid-template-columns: 210px 1fr 120px; gap: 12px; align-items: center; padding: 7px 0; }
+  .fstep .name { font-size: 14px; }
+  .fstep .name small { display: block; color: var(--dim); font-size: 11px; }
+  .fbar { height: 22px; background: var(--card-alt); border-radius: 7px; overflow: hidden; }
+  .fbar i { display: block; height: 100%; background: var(--accent); border-radius: 7px; transition: width .4s ease; }
+  .fbar.after i { background: var(--pink); }
+  .fstep .num { text-align: right; font-weight: 800; font-size: 14px; }
+  .fstep .num small { display: block; font-weight: 600; font-size: 11px; color: var(--dim); }
+  .fstep .num .drop { color: var(--red); }
+  .fsep { border-top: 1px dashed var(--border); margin: 8px 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chipx { background: var(--card-alt); border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; font-size: 13px; }
+  .chipx b { color: var(--accent); }
+  .tag { font-size: 11px; border-radius: 6px; padding: 2px 6px; background: var(--card-alt); border: 1px solid var(--border); color: var(--dim); }
+  .tag.ok { color: #0D0D11; background: var(--green); border-color: var(--green); }
+  .tag.no { color: #fff; background: var(--red); border-color: var(--red); }
+  .tag.pro { color: #0D0D11; background: var(--accent); border-color: var(--accent); }
+  @media (max-width: 640px) { .fstep { grid-template-columns: 1fr 90px; } .fstep .fbar { grid-column: 1 / -1; grid-row: 2; } }
   .hidden { display: none !important; }
   @media (max-width: 560px) { .stat .value { font-size: 27px; } .wrap { padding-top: 16px; } }
 </style>
@@ -160,6 +183,43 @@
       <span><i class="swatch" style="background:var(--pink)"></i>Yeni kullanıcı</span>
       <span><i class="swatch" style="background:var(--accent)"></i>Check-in</span>
     </div>
+  </div>
+
+  <h2>Onboarding funnel <span id="funnelNote" class="muted" style="font-size:13px;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="seg" id="funnelRange">
+        <button data-days="1">24 sa</button><button data-days="7">7 gün</button><button data-days="30" class="on">30 gün</button><button data-days="90">90 gün</button>
+      </div>
+      <select id="funnelPlatform"><option value="">Tüm platformlar</option><option value="ios">iOS</option><option value="android">Android</option></select>
+    </div>
+    <div class="muted" style="margin:10px 0 4px">
+      Seçilen aralıkta uygulamayı <b>ilk kez</b> açan kurulumlar. "Ulaştı" = en az o adıma kadar geldi. Veriler v1.7 kodunu taşıyan sürümlerden gelir.
+    </div>
+    <div class="grid stats" id="funnelStats" style="margin-top:12px"></div>
+    <div id="funnelSteps" style="margin-top:16px"></div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:12px">
+    <div class="card">
+      <label>Bildirim izni cevapları</label>
+      <div class="chips" id="funnelNotif"></div>
+    </div>
+    <div class="card scroll">
+      <label>Paywall nereden açılıyor (tüm kullanıcılar)</label>
+      <table>
+        <thead><tr><th>Kaynak</th><th>Gösterim</th><th>Kişi</th><th>Satın alan</th></tr></thead>
+        <tbody id="funnelSources"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Kim nereye kadar geldi <span id="installsCount" class="muted" style="font-size:13px;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Kurulum</th><th>Onboarding</th><th>Bildirim</th><th>Paywall</th><th>Satın alma</th><th>Check-in</th><th>İlk görülme</th><th>Son hareket</th></tr></thead>
+      <tbody id="installs"></tbody>
+    </table>
   </div>
 
   <h2>Kullanıcılar <span id="usersCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
@@ -611,6 +671,140 @@ function renderRecent(rows) {
   </tr>`).join('');
 }
 
+/* ---------- funnel ---------- */
+const STEP_LABELS = [
+  ['Karşılama', 'uygulama açıldı'],
+  ['İsim', ''],
+  ['Harcama kaçağı', 'kahve, yemek… + haftalık tutar'],
+  ['Hayal / hedef', ''],
+  ['Yıllık hesap', '"yılda şu kadar kaçırıyorsun"'],
+  ['Pro teklifi', 'paywall kapalıysa atlanır'],
+  ['Challenge seçimi', ''],
+  ['Arkadaş davet', 'challenge oluşturuldu'],
+  ['Bildirim izni ekranı', 'izin zaten verilmişse atlanır'],
+];
+const SOURCE_LABELS = {
+  onboarding: 'Onboarding · Pro adımı', profile: 'Profil · Pro ol', stats_yearly: 'İstatistik · yıllık kilit',
+  challenge_limit: 'Challenge limiti', outfits: 'Kedi kostümleri', sos_limit: 'SOS hakkı bitti',
+  sos_limit_sheet: 'SOS limit penceresi', park_limit: 'Park limiti', coach_link: 'Koç · sınırsız linki',
+  game_banner: 'Oyun · reklamı kaldır', ad_banner: 'Banner · reklamı kaldır', unknown: 'Bilinmiyor',
+};
+const NOTIF_LABELS = { granted: 'izin verdi', denied: 'reddetti', skipped: 'şimdi değil', already: 'zaten açıktı', blocked: 'ayarlardan kapalı' };
+const WHERE_LABELS = { onboarding: 'Onboarding', home: 'Ana sayfa kartı', profile: 'Profil' };
+let funnelDays = 30;
+let funnelTimer = null;
+
+const pct = (n, d) => (d ? Math.round((n / d) * 100) : 0);
+
+function funnelRow(name, sub, n, base, prev, after) {
+  const drop = prev !== null && prev > n ? `<small class="drop">−${nf.format(prev - n)} (%${pct(prev - n, prev)})</small>` : `<small>&nbsp;</small>`;
+  return `<div class="fstep">
+    <div class="name">${name}${sub ? `<small>${sub}</small>` : ''}</div>
+    <div class="fbar ${after ? 'after' : ''}"><i style="width:${Math.max(n ? 2 : 0, pct(n, base))}%"></i></div>
+    <div class="num">${nf.format(n)} · %${pct(n, base)}${drop}</div>
+  </div>`;
+}
+
+function renderFunnel(f) {
+  const base = Number(f.cohort) || 0;
+  $('funnelNote').textContent = base ? `· ${nf.format(base)} yeni kurulum` : '· henüz veri yok';
+  $('funnelStats').innerHTML = [
+    statCard(nf.format(base), 'Yeni kurulum', '', 'var(--pink)'),
+    statCard('%' + pct(f.completed, base), 'Onboarding bitti', `${nf.format(f.completed)} kişi`),
+    statCard('%' + pct(f.notif_on, base), 'Bildirim açık', `${nf.format(f.notif_on)} kişi`),
+    statCard('%' + pct(f.first_checkin, base), 'İlk check-in', `${nf.format(f.first_checkin)} kişi`),
+    statCard('%' + pct(f.paywall, base), 'Paywall gördü', `${nf.format(f.paywall)} kişi`),
+    statCard(nf.format(f.bought), 'Satın aldı', base ? `%${pct(f.bought, base)} dönüşüm` : '', 'var(--accent)'),
+  ].join('');
+  if (!base) {
+    $('funnelSteps').innerHTML = `<div class="muted">Bu aralıkta ilk kez açılan kurulum yok. Funnel verisi v1.7 güncellemesi kullanıcılara ulaşınca dolmaya başlar.</div>`;
+  } else {
+    let prev = null;
+    const rows = (f.steps || []).map((s) => {
+      const [name, sub] = STEP_LABELS[s.step] || [`Adım ${s.step}`, ''];
+      const extra = s.step === 5 ? ` · gören: ${nf.format(f.saw_pro)}` : '';
+      const row = funnelRow(`${s.step + 1}. ${name}`, sub + extra, Number(s.installs), base, prev, false);
+      prev = Number(s.installs);
+      return row;
+    });
+    rows.push('<div class="fsep"></div>');
+    rows.push(funnelRow('Onboarding tamamlandı', 'arkadaş adımı geçildi', Number(f.completed), base, null, true));
+    rows.push(funnelRow('Bildirim izni açık', 'verdi ya da zaten açıktı', Number(f.notif_on), base, null, true));
+    rows.push(funnelRow('İlk check-in', '', Number(f.first_checkin), base, null, true));
+    rows.push(funnelRow('Paywall gördü', 'herhangi bir yerden', Number(f.paywall), base, null, true));
+    rows.push(funnelRow('Satın aldı', 'deneme dahil', Number(f.bought), base, null, true));
+    $('funnelSteps').innerHTML = rows.join('');
+  }
+
+  const answers = Object.entries(f.notif_answers || {}).sort((a, b) => b[1] - a[1]);
+  $('funnelNotif').innerHTML = answers.length
+    ? answers.map(([k, n]) => {
+        const [where, result] = k.split(':');
+        return `<span class="chipx">${escapeHtml(WHERE_LABELS[where] || where)} · ${escapeHtml(NOTIF_LABELS[result] || result)} <b>${nf.format(n)}</b></span>`;
+      }).join('')
+    : '<span class="muted">Henüz cevap yok.</span>';
+
+  const sources = Object.entries(f.paywall_sources || {}).sort((a, b) => b[1].views - a[1].views);
+  $('funnelSources').innerHTML = sources.length
+    ? sources.map(([src, v]) => `<tr>
+        <td>${escapeHtml(SOURCE_LABELS[src] || src)}</td>
+        <td>${nf.format(v.views)}</td>
+        <td>${nf.format(v.installs)}</td>
+        <td>${nf.format(v.bought)}${v.installs ? ` <span class="muted">(%${pct(v.bought, v.installs)})</span>` : ''}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" class="muted">Bu aralıkta paywall gösterimi yok.</td></tr>`;
+}
+
+function renderInstalls(rows) {
+  $('installsCount').textContent = rows.length ? `· son ${rows.length} kurulum` : '';
+  if (!rows.length) {
+    $('installs').innerHTML = `<tr><td colspan="8" class="muted">Henüz kayıt yok.</td></tr>`;
+    return;
+  }
+  const when = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  const flag = (p) => (p === 'ios' ? '' : p === 'android' ? '🤖' : '');
+  $('installs').innerHTML = rows.map((r) => {
+    const who = r.name ? escapeHtml(r.name) : `<span class="muted">${escapeHtml(String(r.install_id).slice(0, 8))}</span>`;
+    const meta = [flag(r.platform) + (r.platform || ''), (r.lang || '').toUpperCase(), r.app_version ? 'v' + r.app_version : '', r.is_new ? 'yeni' : 'mevcut']
+      .filter(Boolean).map(escapeHtml).join(' · ');
+    const step = r.max_step === null || r.max_step === undefined
+      ? (r.is_new ? '<span class="muted">—</span>' : '<span class="muted">önceden bitirmiş</span>')
+      : `${r.max_step + 1}. ${escapeHtml((STEP_LABELS[r.max_step] || ['?'])[0])}`;
+    const done = r.completed ? ' <span class="tag ok">bitti</span>' : '';
+    const notif = r.notif
+      ? `<span class="tag ${r.notif === 'granted' || r.notif === 'already' ? 'ok' : r.notif === 'skipped' ? '' : 'no'}">${escapeHtml(NOTIF_LABELS[r.notif] || r.notif)}</span>`
+      : '<span class="muted">—</span>';
+    const pay = Number(r.paywall_views)
+      ? `${nf.format(r.paywall_views)}× <div class="muted" style="font-size:11px">${escapeHtml(SOURCE_LABELS[r.paywall_source] || r.paywall_source || '')}</div>`
+      : '<span class="muted">—</span>';
+    return `<tr>
+      <td>${who}<div class="muted" style="font-size:11px">${meta}</div></td>
+      <td>${step}${done}</td>
+      <td>${notif}</td>
+      <td>${pay}</td>
+      <td>${r.bought ? '<span class="tag pro">PRO</span>' : '<span class="muted">—</span>'}</td>
+      <td>${nf.format(r.checkins)}</td>
+      <td class="muted">${when(r.first_at)}</td>
+      <td class="muted">${when(r.last_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadFunnel() {
+  const platform = $('funnelPlatform').value || null;
+  try {
+    const [f, rows] = await Promise.all([
+      api('/rest/v1/rpc/admin_funnel', { method: 'POST', body: JSON.stringify({ p_days: funnelDays, p_platform: platform }) }),
+      api('/rest/v1/rpc/admin_funnel_installs', { method: 'POST', body: JSON.stringify({ p_limit: 100 }) }),
+    ]);
+    renderFunnel(f || {});
+    renderInstalls(rows || []);
+  } catch (e) {
+    $('funnelNote').textContent = '· funnel okunamadı — supabase/funnel.sql çalıştırılmalı';
+    $('funnelSteps').innerHTML = `<div class="muted">${escapeHtml(e.message)}</div>`;
+  }
+}
+
 function renderUsers(rows) {
   const pro = rows.filter((u) => u.is_pro === true).length;
   const known = rows.filter((u) => u.is_pro !== null && u.is_pro !== undefined).length;
@@ -805,6 +999,9 @@ async function boot() {
   }
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
+  loadFunnel();
+  clearInterval(funnelTimer);
+  funnelTimer = setInterval(() => loadFunnel(), 60000);
   clearInterval(timer);
   timer = setInterval(() => {
     loadStats().catch(() => {});
@@ -815,6 +1012,7 @@ async function boot() {
 function logout() {
   clearSession();
   clearInterval(timer);
+  clearInterval(funnelTimer);
   $('app').classList.add('hidden');
   $('login').classList.remove('hidden');
 }
@@ -842,6 +1040,14 @@ $('sendPushBtn').addEventListener('click', sendBroadcast);
 $('saveBtn').addEventListener('click', saveConfig);
 $('refreshBtn').addEventListener('click', () => loadStats().catch((e) => { $('lastUpdate').textContent = '⚠️ ' + e.message; }));
 $('logoutBtn').addEventListener('click', logout);
+$('funnelRange').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-days]');
+  if (!b) return;
+  funnelDays = Number(b.dataset.days);
+  document.querySelectorAll('#funnelRange button').forEach((x) => x.classList.toggle('on', x === b));
+  loadFunnel();
+});
+$('funnelPlatform').addEventListener('change', () => loadFunnel());
 $('forceLatestBtn').addEventListener('click', () => {
   $('min_supported_version').value = $('latest_version').value;
   $('saveState').textContent = 'kaydetmeyi unutma ↓';
