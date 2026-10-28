@@ -133,6 +133,8 @@
   .tag.no { color: #fff; background: var(--red); border-color: var(--red); }
   .tag.pro { color: #0D0D11; background: var(--accent); border-color: var(--accent); }
   @media (max-width: 640px) { .fstep { grid-template-columns: 1fr 90px; } .fstep .fbar { grid-column: 1 / -1; grid-row: 2; } }
+  button.del { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: transparent; color: var(--red); border-color: rgba(255,92,92,.45); }
+  button.del:hover { background: rgba(255,92,92,.12); }
   .hidden { display: none !important; }
   @media (max-width: 560px) { .stat .value { font-size: 27px; } .wrap { padding-top: 16px; } }
 </style>
@@ -217,9 +219,34 @@
   <h2>Kim nereye kadar geldi <span id="installsCount" class="muted" style="font-size:13px;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
   <div class="card scroll">
     <table>
-      <thead><tr><th>Kurulum</th><th>Onboarding</th><th>Bildirim</th><th>Paywall</th><th>Satın alma</th><th>Check-in</th><th>İlk görülme</th><th>Son hareket</th></tr></thead>
+      <thead><tr><th>Kurulum</th><th>Onboarding</th><th>Bildirim</th><th>Paywall</th><th>Satın alma</th><th>Check-in</th><th>İlk görülme</th><th>Son hareket</th><th></th></tr></thead>
       <tbody id="installs"></tbody>
     </table>
+  </div>
+
+  <h2>Davetler <span id="refNote" class="muted" style="font-size:13px;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+  <div class="card">
+    <div class="muted" style="margin-bottom:12px">
+      Her kullanıcının kişisel bir kodu var (ör. HASAN-7K2). Kodla ya da eski BRK- challenge koduyla gelen herkes davet sayılır.
+      <b>Aktif</b> = arkadaş en az 12 saat sonra tekrar gelip check-in yaptı; ödüller buna göre verilir.
+    </div>
+    <div class="grid stats" id="refStats"></div>
+  </div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:12px">
+    <div class="card scroll">
+      <label>En çok getirenler</label>
+      <table>
+        <thead><tr><th>Kişi</th><th>Kod</th><th>Getirdi</th><th>Aktif</th></tr></thead>
+        <tbody id="refTop"></tbody>
+      </table>
+    </div>
+    <div class="card scroll">
+      <label>Son davetler</label>
+      <table>
+        <thead><tr><th>Davet eden → gelen</th><th>Yol</th><th>Durum</th><th>Ne zaman</th></tr></thead>
+        <tbody id="refRecent"></tbody>
+      </table>
+    </div>
   </div>
 
   <h2>Kullanıcılar <span id="usersCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
@@ -228,7 +255,7 @@
       Pro durumu uygulamadan bildirilir. "—" görünenler henüz bunu bildiren bir sürüme geçmemiş kullanıcılardır.
     </div>
     <table>
-      <thead><tr><th>Kullanıcı</th><th>Pro</th><th>Challenge</th><th>Check-in</th><th>Direndi</th><th>Biriktirdi</th><th>Son hareket</th><th>Katıldı</th></tr></thead>
+      <thead><tr><th>Kullanıcı</th><th>Pro</th><th>Challenge</th><th>Check-in</th><th>Direndi</th><th>Biriktirdi</th><th>Son hareket</th><th>Katıldı</th><th></th></tr></thead>
       <tbody id="users"></tbody>
     </table>
   </div>
@@ -682,6 +709,7 @@ const STEP_LABELS = [
   ['Challenge seçimi', ''],
   ['Arkadaş davet', 'challenge oluşturuldu'],
   ['Bildirim izni ekranı', 'izin zaten verilmişse atlanır'],
+  ['Davet kodu', 'kodla gelme yolu'],
 ];
 const SOURCE_LABELS = {
   onboarding: 'Onboarding · Pro adımı', profile: 'Profil · Pro ol', stats_yearly: 'İstatistik · yıllık kilit',
@@ -716,6 +744,9 @@ function renderFunnel(f) {
     statCard('%' + pct(f.paywall, base), 'Paywall gördü', `${nf.format(f.paywall)} kişi`),
     statCard(nf.format(f.bought), 'Satın aldı', base ? `%${pct(f.bought, base)} dönüşüm` : '', 'var(--accent)'),
   ].join('');
+  // Installs that came with an invite code skip steps 2–8, so the bars use the rest.
+  const invited = Number(f.invited) || 0;
+  const stepBase = Math.max(0, base - invited);
   if (!base) {
     $('funnelSteps').innerHTML = `<div class="muted">Bu aralıkta ilk kez açılan kurulum yok. Funnel verisi v1.7 güncellemesi kullanıcılara ulaşınca dolmaya başlar.</div>`;
   } else {
@@ -723,10 +754,15 @@ function renderFunnel(f) {
     const rows = (f.steps || []).map((s) => {
       const [name, sub] = STEP_LABELS[s.step] || [`Adım ${s.step}`, ''];
       const extra = s.step === 5 ? ` · gören: ${nf.format(f.saw_pro)}` : '';
-      const row = funnelRow(`${s.step + 1}. ${name}`, sub + extra, Number(s.installs), base, prev, false);
+      const row = funnelRow(`${s.step + 1}. ${name}`, sub + extra, Number(s.installs), stepBase, prev, false);
       prev = Number(s.installs);
       return row;
     });
+    if (invited) {
+      rows.push('<div class="fsep"></div>');
+      rows.push(funnelRow('Davet koduyla geldi', 'kısa yol: kod → katıl → bildirim; yukarıdaki adımlara dahil değil', invited, base, null, true));
+      rows.push(funnelRow('… ve bitirdi', '', Number(f.invited_done) || 0, base, null, true));
+    }
     rows.push('<div class="fsep"></div>');
     rows.push(funnelRow('Onboarding tamamlandı', 'arkadaş adımı geçildi', Number(f.completed), base, null, true));
     rows.push(funnelRow('Bildirim izni açık', 'verdi ya da zaten açıktı', Number(f.notif_on), base, null, true));
@@ -758,7 +794,7 @@ function renderFunnel(f) {
 function renderInstalls(rows) {
   $('installsCount').textContent = rows.length ? `· son ${rows.length} kurulum` : '';
   if (!rows.length) {
-    $('installs').innerHTML = `<tr><td colspan="8" class="muted">Henüz kayıt yok.</td></tr>`;
+    $('installs').innerHTML = `<tr><td colspan="9" class="muted">Henüz kayıt yok.</td></tr>`;
     return;
   }
   const when = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -786,8 +822,73 @@ function renderInstalls(rows) {
       <td>${nf.format(r.checkins)}</td>
       <td class="muted">${when(r.first_at)}</td>
       <td class="muted">${when(r.last_at)}</td>
+      <td><button class="del" data-install="${escapeHtml(r.install_id)}" data-label="${escapeHtml(r.name || String(r.install_id).slice(0, 8))}">Sil</button></td>
     </tr>`;
   }).join('');
+}
+
+/* ---------- referrals ---------- */
+function renderReferrals(r) {
+  const total = Number(r.total) || 0;
+  $('refNote').textContent = total ? `· ${nf.format(total)} davet` : '· henüz davet yok';
+  $('refStats').innerHTML = [
+    statCard(nf.format(r.codes || 0), 'Kodu olan kişi', ''),
+    statCard(nf.format(total), 'Davetle gelen', r.last7 ? `son 7 gün +${nf.format(r.last7)}` : '', 'var(--pink)'),
+    statCard(nf.format(r.active || 0), 'Aktif', total ? `%${pct(r.active, total)}` : '', 'var(--accent)'),
+    statCard(nf.format(r.by_code || 0), 'Kişisel kodla', ''),
+    statCard(nf.format(r.by_challenge || 0), 'Challenge koduyla', ''),
+  ].join('');
+  const when = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  $('refTop').innerHTML = (r.top || []).length
+    ? r.top.map((t) => `<tr>
+        <td>${escapeHtml(t.name || 'Anonim')}</td>
+        <td><code class="pill">${escapeHtml(t.code || '—')}</code></td>
+        <td>${nf.format(t.joined)}</td>
+        <td>${nf.format(t.active)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" class="muted">Henüz yok.</td></tr>`;
+  $('refRecent').innerHTML = (r.recent || []).length
+    ? r.recent.map((x) => `<tr>
+        <td>${escapeHtml(x.referrer || 'Anonim')} → ${escapeHtml(x.referee || 'Anonim')}<div class="muted" style="font-size:11px">${escapeHtml(x.code || '')}</div></td>
+        <td>${x.source === 'code' ? 'kişisel kod' : 'challenge kodu'}</td>
+        <td>${x.activated_at ? '<span class="tag ok">aktif</span>' : '<span class="tag">bekliyor</span>'}</td>
+        <td class="muted">${when(x.created_at)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" class="muted">Henüz yok.</td></tr>`;
+}
+
+async function loadReferrals() {
+  try {
+    renderReferrals((await api('/rest/v1/rpc/admin_referrals', { method: 'POST', body: '{}' })) || {});
+  } catch (e) {
+    $('refNote').textContent = '· okunamadı — supabase/referrals.sql çalıştırılmalı';
+  }
+}
+
+/* ---------- delete (test accounts, cleanup) ---------- */
+async function deleteRow(btn) {
+  const label = btn.dataset.label || '';
+  const isUser = Boolean(btn.dataset.user);
+  const msg = isUser
+    ? `"${label}" kullanıcısı KALICI olarak silinsin mi?\n\nChallenge'ları, check-in'leri, davetleri ve funnel kayıtları da silinir. Sahibi olduğu challenge'lara katılmış arkadaşlar o challenge'ı bulutta kaybeder. Geri alınamaz.`
+    : `"${label}" kurulumu KALICI olarak silinsin mi?\n\nFunnel kayıtları ve bu kurulumun bağlı olduğu kullanıcı hesabı (challenge'ları, check-in'leri dahil) silinir. Geri alınamaz.`;
+  if (!confirm(msg)) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    if (isUser) {
+      await api('/rest/v1/rpc/admin_delete_user', { method: 'POST', body: JSON.stringify({ p_user: btn.dataset.user }) });
+    } else {
+      await api('/rest/v1/rpc/admin_delete_install', { method: 'POST', body: JSON.stringify({ p_install: btn.dataset.install }) });
+    }
+    btn.closest('tr')?.remove();
+    await Promise.all([loadStats().catch(() => {}), loadFunnel(), loadReferrals()]);
+  } catch (e) {
+    const m = String(e.message);
+    alert(m.includes('CANNOT_DELETE_ADMIN') ? 'Admin hesabı silinemez.' : m.includes('CANNOT_DELETE_SELF') ? 'Kendi hesabını silemezsin.' : 'Silinemedi: ' + m);
+    btn.disabled = false;
+    btn.textContent = 'Sil';
+  }
 }
 
 async function loadFunnel() {
@@ -811,7 +912,7 @@ function renderUsers(rows) {
   $('usersCount').textContent =
     `· ${rows.length} kişi · ${pro} Pro` + (known < rows.length ? ` · ${rows.length - known} bilinmiyor` : '');
   if (!rows.length) {
-    $('users').innerHTML = `<tr><td colspan="8" class="muted">Henüz kullanıcı yok.</td></tr>`;
+    $('users').innerHTML = `<tr><td colspan="9" class="muted">Henüz kullanıcı yok.</td></tr>`;
     return;
   }
   const when = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -829,6 +930,7 @@ function renderUsers(rows) {
       <td>${money(u.saved)}</td>
       <td class="muted">${when(u.last_checkin)}</td>
       <td class="muted">${when(u.created_at)}</td>
+      <td><button class="del" data-user="${escapeHtml(u.id)}" data-label="${escapeHtml(u.name || 'Anonim')}">Sil</button></td>
     </tr>`;
   }).join('');
 }
@@ -1000,8 +1102,12 @@ async function boot() {
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   loadFunnel();
+  loadReferrals();
   clearInterval(funnelTimer);
-  funnelTimer = setInterval(() => loadFunnel(), 60000);
+  funnelTimer = setInterval(() => {
+    loadFunnel();
+    loadReferrals();
+  }, 60000);
   clearInterval(timer);
   timer = setInterval(() => {
     loadStats().catch(() => {});
@@ -1048,6 +1154,11 @@ $('funnelRange').addEventListener('click', (e) => {
   loadFunnel();
 });
 $('funnelPlatform').addEventListener('change', () => loadFunnel());
+// Delete buttons live in tables that re-render every refresh, so listen on the page.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button.del');
+  if (btn) deleteRow(btn);
+});
 $('forceLatestBtn').addEventListener('click', () => {
   $('min_supported_version').value = $('latest_version').value;
   $('saveState').textContent = 'kaydetmeyi unutma ↓';
