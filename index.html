@@ -135,6 +135,12 @@
   @media (max-width: 640px) { .fstep { grid-template-columns: 1fr 90px; } .fstep .fbar { grid-column: 1 / -1; grid-row: 2; } }
   button.del { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: transparent; color: var(--red); border-color: rgba(255,92,92,.45); }
   button.del:hover { background: rgba(255,92,92,.12); }
+  button.probtn { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: transparent; color: var(--accent); border-color: rgba(200,255,77,.45); margin-right: 6px; }
+  button.probtn:hover { background: rgba(200,255,77,.1); }
+  dialog#proDialog { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 18px; padding: 22px; max-width: 380px; width: calc(100% - 32px); }
+  dialog#proDialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog#proDialog .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0 10px; }
+  .flag { font-size: 15px; margin-right: 4px; }
   .hidden { display: none !important; }
   @media (max-width: 560px) { .stat .value { font-size: 27px; } .wrap { padding-top: 16px; } }
 </style>
@@ -193,7 +199,10 @@
       <div class="seg" id="funnelRange">
         <button data-days="1">24 sa</button><button data-days="7">7 gün</button><button data-days="30" class="on">30 gün</button><button data-days="90">90 gün</button>
       </div>
-      <select id="funnelPlatform"><option value="">Tüm platformlar</option><option value="ios">iOS</option><option value="android">Android</option></select>
+      <div class="row" style="gap:8px">
+        <select id="funnelCountry"><option value="">Tüm ülkeler</option></select>
+        <select id="funnelPlatform"><option value="">Tüm platformlar</option><option value="ios">iOS</option><option value="android">Android</option></select>
+      </div>
     </div>
     <div class="muted" style="margin:10px 0 4px">
       Seçilen aralıkta uygulamayı <b>ilk kez</b> açan kurulumlar. "Ulaştı" = en az o adıma kadar geldi. Veriler v1.7 kodunu taşıyan sürümlerden gelir.
@@ -212,6 +221,24 @@
       <table>
         <thead><tr><th>Kaynak</th><th>Gösterim</th><th>Kişi</th><th>Satın alan</th></tr></thead>
         <tbody id="funnelSources"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:12px">
+    <div class="card scroll">
+      <label>Ülkeler (aralıkta aktif kurulumlar)</label>
+      <div class="muted" style="font-size:12px;margin:-2px 0 8px">Mağaza hesabının ülkesi; yoksa cihazın bölge ayarı. "??" = ülke bildirmeyen eski sürüm.</div>
+      <table>
+        <thead><tr><th>Ülke</th><th>Kurulum</th><th>Yeni</th><th>Onboarding</th><th>Paywall</th><th>Satın alan</th></tr></thead>
+        <tbody id="funnelCountries"></tbody>
+      </table>
+    </div>
+    <div class="card scroll">
+      <label>Sürümler ve OTA (aralıkta aktif kurulumlar)</label>
+      <table>
+        <thead><tr><th>Sürüm</th><th>Paket</th><th>Kurulum</th></tr></thead>
+        <tbody id="funnelVersions"></tbody>
       </table>
     </div>
   </div>
@@ -253,12 +280,30 @@
   <div class="card scroll">
     <div class="muted" style="margin-bottom:10px">
       Pro durumu uygulamadan bildirilir. "—" görünenler henüz bunu bildiren bir sürüme geçmemiş kullanıcılardır.
+      <b>Pro</b> düğmesiyle istediğin kişiye süreli ya da ömür boyu Pro tanımlayabilirsin; uygulama bir sonraki açılışta görür (v1.7+).
     </div>
     <table>
       <thead><tr><th>Kullanıcı</th><th>Pro</th><th>Challenge</th><th>Check-in</th><th>Direndi</th><th>Biriktirdi</th><th>Son hareket</th><th>Katıldı</th><th></th></tr></thead>
       <tbody id="users"></tbody>
     </table>
   </div>
+
+  <dialog id="proDialog">
+    <div style="font-size:18px;font-weight:800">Pro tanımla</div>
+    <div class="muted" id="proDialogWho" style="margin-top:4px"></div>
+    <div class="opts">
+      <button data-days="7">7 gün</button>
+      <button data-days="30">30 gün</button>
+      <button data-days="90">3 ay</button>
+      <button data-days="365">1 yıl</button>
+      <button data-days="life" class="primary" style="grid-column:1 / -1">Ömür boyu</button>
+    </div>
+    <div class="row" style="gap:8px;justify-content:space-between">
+      <button id="proRevoke" class="del" style="padding:9px 14px">Pro'yu kaldır</button>
+      <button id="proCancel" class="ghost" style="padding:9px 14px">Vazgeç</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:12px">Süre, devam eden bir tanımın sonuna eklenir. Mağaza aboneliğine dokunmaz; App Store / Play'den alınmış Pro ayrıca devam eder.</div>
+  </dialog>
 
   <h2>Son challenge'lar</h2>
   <div class="card scroll">
@@ -698,6 +743,26 @@ function renderRecent(rows) {
   </tr>`).join('');
 }
 
+/* ---------- country / device helpers ---------- */
+const regionNames = (() => { try { return new Intl.DisplayNames(['tr'], { type: 'region' }); } catch { return null; } })();
+function countryFlag(cc) {
+  if (!/^[A-Z]{2}$/.test(cc || '')) return '';
+  return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+function countryName(cc) {
+  if (!/^[A-Z]{2}$/.test(cc || '')) return 'Bilinmiyor';
+  try { return regionNames?.of(cc) || cc; } catch { return cc; }
+}
+function countryLabel(cc) {
+  return /^[A-Z]{2}$/.test(cc || '') ? `<span class="flag">${countryFlag(cc)}</span>${escapeHtml(countryName(cc))}` : '<span class="muted">Bilinmiyor</span>';
+}
+/** "iPhone · iOS 26.0" / "samsung SM-A520F · Android 14" */
+function deviceLine(r) {
+  const os = r.os_version ? (r.platform === 'android' ? 'Android ' : r.platform === 'ios' ? 'iOS ' : '') + r.os_version : '';
+  return [r.device, os].filter(Boolean).join(' · ');
+}
+const shortDate = (v) => (v ? new Date(v).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '');
+
 /* ---------- funnel ---------- */
 const STEP_LABELS = [
   ['Karşılama', 'uygulama açıldı'],
@@ -780,6 +845,34 @@ function renderFunnel(f) {
       }).join('')
     : '<span class="muted">Henüz cevap yok.</span>';
 
+  const countries = f.countries || [];
+  $('funnelCountries').innerHTML = countries.length
+    ? countries.map((c) => `<tr>
+        <td>${countryLabel(c.country)}</td>
+        <td>${nf.format(c.installs)}</td>
+        <td>${nf.format(c.new)}</td>
+        <td>${nf.format(c.completed)}${c.new ? ` <span class="muted">(%${pct(c.completed, c.installs)})</span>` : ''}</td>
+        <td>${nf.format(c.paywall)}</td>
+        <td>${nf.format(c.bought)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="6" class="muted">Bu aralıkta veri yok.</td></tr>`;
+  // Keep the filter list in step with what the data has (the chosen one stays even if it drops out).
+  const sel = $('funnelCountry');
+  const chosen = sel.value;
+  const codes = countries.map((c) => c.country).filter((c) => /^[A-Z]{2}$/.test(c));
+  if (chosen && !codes.includes(chosen)) codes.unshift(chosen);
+  sel.innerHTML = '<option value="">Tüm ülkeler</option>' + codes
+    .map((c) => `<option value="${c}" ${c === chosen ? 'selected' : ''}>${countryFlag(c)} ${escapeHtml(countryName(c))}</option>`).join('');
+
+  const versions = f.versions || [];
+  $('funnelVersions').innerHTML = versions.length
+    ? versions.map((v) => `<tr>
+        <td>${v.version ? 'v' + escapeHtml(v.version) : '<span class="muted">?</span>'}</td>
+        <td>${v.update_id ? `OTA · ${escapeHtml(shortDate(v.update_at))} <span class="muted" style="font-size:11px">${escapeHtml(String(v.update_id).slice(0, 8))}</span>` : '<span class="muted">mağaza paketi</span>'}</td>
+        <td>${nf.format(v.installs)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="3" class="muted">Bu aralıkta veri yok.</td></tr>`;
+
   const sources = Object.entries(f.paywall_sources || {}).sort((a, b) => b[1].views - a[1].views);
   $('funnelSources').innerHTML = sources.length
     ? sources.map(([src, v]) => `<tr>
@@ -801,7 +894,9 @@ function renderInstalls(rows) {
   const flag = (p) => (p === 'ios' ? '' : p === 'android' ? '🤖' : '');
   $('installs').innerHTML = rows.map((r) => {
     const who = r.name ? escapeHtml(r.name) : `<span class="muted">${escapeHtml(String(r.install_id).slice(0, 8))}</span>`;
-    const meta = [flag(r.platform) + (r.platform || ''), (r.lang || '').toUpperCase(), r.app_version ? 'v' + r.app_version : '', r.is_new ? 'yeni' : 'mevcut']
+    const cc = r.store_country || r.country;
+    const meta = [cc ? `${countryFlag(cc)} ${cc}` : '', flag(r.platform) + (r.platform || ''), deviceLine(r), (r.lang || '').toUpperCase(),
+      r.app_version ? 'v' + r.app_version + (r.update_at ? ` (OTA ${shortDate(r.update_at)})` : '') : '', r.is_new ? 'yeni' : 'mevcut']
       .filter(Boolean).map(escapeHtml).join(' · ');
     const step = r.max_step === null || r.max_step === undefined
       ? (r.is_new ? '<span class="muted">—</span>' : '<span class="muted">önceden bitirmiş</span>')
@@ -893,9 +988,10 @@ async function deleteRow(btn) {
 
 async function loadFunnel() {
   const platform = $('funnelPlatform').value || null;
+  const country = $('funnelCountry').value || null;
   try {
     const [f, rows] = await Promise.all([
-      api('/rest/v1/rpc/admin_funnel', { method: 'POST', body: JSON.stringify({ p_days: funnelDays, p_platform: platform }) }),
+      api('/rest/v1/rpc/admin_funnel', { method: 'POST', body: JSON.stringify({ p_days: funnelDays, p_platform: platform, p_country: country }) }),
       api('/rest/v1/rpc/admin_funnel_installs', { method: 'POST', body: JSON.stringify({ p_limit: 100 }) }),
     ]);
     renderFunnel(f || {});
@@ -917,22 +1013,73 @@ function renderUsers(rows) {
   }
   const when = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
   $('users').innerHTML = rows.map((u) => {
+    const grant = grantState(u.pro_grant_until);
     const badge =
       u.is_pro === true ? `<span class="pill" style="background:var(--accent);color:#0D0D11">PRO</span>`
-      : u.is_pro === false ? `<span class="muted">ücretsiz</span>`
+      : grant ? '' : u.is_pro === false ? `<span class="muted">ücretsiz</span>`
       : `<span class="muted">—</span>`;
+    const granted = grant
+      ? `<div><span class="tag pro">PRO · admin</span></div><div class="muted" style="font-size:11px">${escapeHtml(grant.label)}</div>`
+      : '';
+    const meta = [u.country ? `${countryFlag(u.country)} ${u.country}` : '', deviceLine(u), u.app_version ? 'v' + u.app_version : '', String(u.id).slice(0, 8)]
+      .filter(Boolean).map(escapeHtml).join(' · ');
     return `<tr>
-      <td>${escapeHtml(u.name || 'Anonim')}<div class="muted" style="font-size:11px">${escapeHtml(String(u.id).slice(0, 8))}</div></td>
-      <td>${badge}</td>
+      <td>${escapeHtml(u.name || 'Anonim')}<div class="muted" style="font-size:11px">${meta}</div></td>
+      <td>${badge}${granted}</td>
       <td>${u.challenges}</td>
       <td>${u.checkins}</td>
       <td>${u.held}</td>
       <td>${money(u.saved)}</td>
       <td class="muted">${when(u.last_checkin)}</td>
       <td class="muted">${when(u.created_at)}</td>
-      <td><button class="del" data-user="${escapeHtml(u.id)}" data-label="${escapeHtml(u.name || 'Anonim')}">Sil</button></td>
+      <td style="white-space:nowrap"><button class="probtn" data-user="${escapeHtml(u.id)}" data-label="${escapeHtml(u.name || 'Anonim')}" data-grant="${escapeHtml(u.pro_grant_until || '')}">Pro</button><button class="del" data-user="${escapeHtml(u.id)}" data-label="${escapeHtml(u.name || 'Anonim')}">Sil</button></td>
     </tr>`;
   }).join('');
+}
+
+/* ---------- admin Pro grants ---------- */
+/** null when there is no running grant, else { label } ("ömür boyu" / "27 Ara'ya kadar · 60 gün"). */
+function grantState(until) {
+  if (!until) return null;
+  if (until === 'infinity') return { label: 'ömür boyu' };
+  const end = new Date(until.replace(' ', 'T'));
+  const left = Math.ceil((end - Date.now()) / 86400000);
+  if (!(left > 0)) return null;
+  return { label: `${end.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })} tarihine kadar · ${left} gün` };
+}
+
+let proTarget = null;
+function openProDialog(btn) {
+  proTarget = btn;
+  const grant = grantState(btn.dataset.grant);
+  $('proDialogWho').textContent = `${btn.dataset.label}` + (grant ? ` · şu an: ${grant.label}` : ' · şu an admin Pro yok');
+  $('proRevoke').classList.toggle('hidden', !grant);
+  $('proDialog').showModal();
+}
+
+async function applyPro(days) {
+  if (!proTarget) return;
+  const user = proTarget.dataset.user;
+  const label = proTarget.dataset.label;
+  const buttons = $('proDialog').querySelectorAll('button');
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    if (days === 'revoke') {
+      if (!confirm(`"${label}" kullanıcısının admin Pro'su kaldırılsın mı?`)) return;
+      await api('/rest/v1/rpc/admin_revoke_pro', { method: 'POST', body: JSON.stringify({ p_user: user }) });
+    } else {
+      await api('/rest/v1/rpc/admin_grant_pro', {
+        method: 'POST',
+        body: JSON.stringify({ p_user: user, p_days: days === 'life' ? null : Number(days) }),
+      });
+    }
+    $('proDialog').close();
+    await loadStats();
+  } catch (e) {
+    alert('Kaydedilemedi: ' + e.message + (String(e.message).includes('admin_grant_pro') ? '\n\nsupabase/admin-users.sql çalıştırılmalı.' : ''));
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+  }
 }
 
 function escapeHtml(s) {
@@ -973,7 +1120,7 @@ async function loadStats() {
     renderUsers(users || []);
   } catch {
     $('usersCount').textContent = '· liste yok — supabase/admin-users.sql çalıştırılmalı';
-    $('users').innerHTML = `<tr><td colspan="8" class="muted">admin_users() fonksiyonu veritabanında yok.</td></tr>`;
+    $('users').innerHTML = `<tr><td colspan="9" class="muted">admin_users() fonksiyonu veritabanında yok.</td></tr>`;
   }
   $('lastUpdate').textContent = 'canlı · son güncelleme ' + new Date().toLocaleTimeString('tr-TR');
 }
@@ -1154,11 +1301,21 @@ $('funnelRange').addEventListener('click', (e) => {
   loadFunnel();
 });
 $('funnelPlatform').addEventListener('change', () => loadFunnel());
-// Delete buttons live in tables that re-render every refresh, so listen on the page.
+$('funnelCountry').addEventListener('change', () => loadFunnel());
+// Row buttons live in tables that re-render every refresh, so listen on the page.
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('button.del');
-  if (btn) deleteRow(btn);
+  if (e.target.closest('#proDialog')) return;
+  const del = e.target.closest('button.del');
+  if (del) deleteRow(del);
+  const pro = e.target.closest('button.probtn');
+  if (pro) openProDialog(pro);
 });
+$('proDialog').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-days]');
+  if (b) applyPro(b.dataset.days);
+});
+$('proRevoke').addEventListener('click', () => applyPro('revoke'));
+$('proCancel').addEventListener('click', () => $('proDialog').close());
 $('forceLatestBtn').addEventListener('click', () => {
   $('min_supported_version').value = $('latest_version').value;
   $('saveState').textContent = 'kaydetmeyi unutma ↓';
