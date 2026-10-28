@@ -472,6 +472,8 @@ const ADS_FIELDS = {
   ads_ri_daily_cap: ['rewarded_interstitial.daily_cap', 'num'], ads_ri_coins: ['rewarded_interstitial.coins', 'num'],
 };
 let adsColumnPresent = false;
+/* Columns the live app_config row actually has: an older database may lack some. */
+let configColumns = new Set();
 const getPath = (o, path) => path.split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : undefined), o);
 const setPath = (o, path, v) => { const ks = path.split('.'); let cur = o; ks.slice(0, -1).forEach((k) => { cur[k] = cur[k] && typeof cur[k] === 'object' ? cur[k] : {}; cur = cur[k]; }); cur[ks[ks.length - 1]] = v; };
 
@@ -642,7 +644,14 @@ function escapeHtml(s) {
 }
 
 function fillConfig(c) {
+  configColumns = new Set(Object.keys(c));
   TEXT_FIELDS.forEach((f) => { $(f).value = c[f] ?? ''; });
+  // A field whose column is missing can't be saved; say so instead of failing the whole save.
+  [...TEXT_FIELDS, ...FLAG_FIELDS].forEach((f) => {
+    const missing = !configColumns.has(f);
+    $(f).disabled = missing;
+    if (missing && $(f).placeholder !== undefined) $(f).placeholder = 'veritabanında sütun yok — supabase/admin.sql';
+  });
   FLAG_FIELDS.forEach((f) => { $(f).checked = Boolean(c[f]); });
   adsColumnPresent = Object.prototype.hasOwnProperty.call(c, 'ads');
   $('adsMissing').classList.toggle('hidden', adsColumnPresent);
@@ -680,9 +689,9 @@ async function loadConfig() {
 
 async function saveConfig() {
   const payload = {};
-  TEXT_FIELDS.forEach((f) => { payload[f] = $(f).value.trim(); });
-  FLAG_FIELDS.forEach((f) => { payload[f] = $(f).checked; });
-  // Sütun yoksa PATCH'e eklemek tüm kaydı düşürür; o zaman reklam alanları atlanır.
+  // Sütun yoksa PATCH'e eklemek tüm kaydı düşürür; o alanlar (ve reklamlar) atlanır.
+  TEXT_FIELDS.filter((f) => configColumns.has(f)).forEach((f) => { payload[f] = $(f).value.trim(); });
+  FLAG_FIELDS.filter((f) => configColumns.has(f)).forEach((f) => { payload[f] = $(f).checked; });
   if (adsColumnPresent) payload.ads = readAds();
 
   if (payload.maintenance && !confirm('Bakım modu AÇILIYOR. Uygulama tüm kullanıcılara kapanacak. Emin misin?')) return;
