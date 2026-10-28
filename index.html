@@ -1042,7 +1042,8 @@ function renderUsers(rows) {
 function grantState(until) {
   if (!until) return null;
   if (until === 'infinity') return { label: 'ömür boyu' };
-  const end = new Date(until.replace(' ', 'T'));
+  // Postgres text: "2026-12-27 11:29:34.63+00" → ISO the browser can parse.
+  const end = new Date(until.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'));
   const left = Math.ceil((end - Date.now()) / 86400000);
   if (!(left > 0)) return null;
   return { label: `${end.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })} tarihine kadar · ${left} gün` };
