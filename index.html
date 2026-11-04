@@ -137,6 +137,11 @@
   button.del:hover { background: rgba(255,92,92,.12); }
   button.probtn { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: transparent; color: var(--accent); border-color: rgba(200,255,77,.45); margin-right: 6px; }
   button.probtn:hover { background: rgba(200,255,77,.1); }
+  button.testbtn { padding: 6px 11px; font-size: 12px; border-radius: 9px; background: transparent; color: var(--dim); border-color: var(--border); margin-right: 6px; }
+  button.testbtn:hover { background: var(--card-alt); }
+  .tag.test { color: #0D0D11; background: var(--yellow); border-color: var(--yellow); }
+  tr.istest td { opacity: .55; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); cursor: pointer; white-space: nowrap; }
   dialog#proDialog { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 18px; padding: 22px; max-width: 380px; width: calc(100% - 32px); }
   dialog#proDialog::backdrop { background: rgba(0,0,0,.6); }
   dialog#proDialog .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0 10px; }
@@ -202,10 +207,12 @@
       <div class="row" style="gap:8px">
         <select id="funnelCountry"><option value="">Tüm ülkeler</option></select>
         <select id="funnelPlatform"><option value="">Tüm platformlar</option><option value="ios">iOS</option><option value="android">Android</option></select>
+        <label class="chk" title="Simülatörler, sandbox (Apple inceleme / TestFlight / Play test) satın alanlar ve elle Test işaretlenen kurulumlar"><input type="checkbox" id="funnelTests"> Testleri göster</label>
       </div>
     </div>
     <div class="muted" style="margin:10px 0 4px">
       Seçilen aralıkta uygulamayı <b>ilk kez</b> açan kurulumlar. "Ulaştı" = en az o adıma kadar geldi. Veriler v1.7 kodunu taşıyan sürümlerden gelir.
+      Test trafiği (simülatör, sandbox satın alma, elle <b>Test</b> işaretlenen) varsayılan olarak sayılmaz.
     </div>
     <div class="grid stats" id="funnelStats" style="margin-top:12px"></div>
     <div id="funnelSteps" style="margin-top:16px"></div>
@@ -223,6 +230,16 @@
         <tbody id="funnelSources"></tbody>
       </table>
     </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <label>Penny AI sohbet (bu ay, UTC)</label>
+    <div class="chips" id="pennyUsage"><span class="muted">—</span></div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Bütçe tavanı ve kullanıcı başına günlük limit Supabase → Edge Functions → Secrets'ta (PENNY_MONTHLY_BUDGET_USD, PENNY_DAILY_LIMIT).</div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <label>Paywall'da ne oluyor (aralıkta paywall gören herkes, kişi sayısı)</label>
+    <div class="chips" id="funnelPaywall"></div>
+    <div class="muted" style="font-size:12px;margin-top:10px" id="funnelFails"></div>
   </div>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:12px">
@@ -780,8 +797,13 @@ const SOURCE_LABELS = {
   onboarding: 'Onboarding · Pro adımı', profile: 'Profil · Pro ol', stats_yearly: 'İstatistik · yıllık kilit',
   challenge_limit: 'Challenge limiti', outfits: 'Kedi kostümleri', sos_limit: 'SOS hakkı bitti',
   sos_limit_sheet: 'SOS limit penceresi', park_limit: 'Park limiti', coach_link: 'Koç · sınırsız linki',
-  game_banner: 'Oyun · reklamı kaldır', ad_banner: 'Banner · reklamı kaldır', unknown: 'Bilinmiyor',
+  game_banner: 'Oyun · reklamı kaldır', ad_banner: 'Banner · reklamı kaldır', hard: 'Onboarding sonu · zorunlu',
+  penny_chat: 'Koç · Penny AI sohbet',
+  unknown: 'Bilinmiyor',
 };
+const TEST_LABELS = { manual: 'elle', simulator: 'simülatör', sandbox: 'sandbox alım' };
+const showTests = () => $('funnelTests').checked;
+const testTag = (reason) => `<span class="tag test" title="Test trafiği: ${escapeHtml(TEST_LABELS[reason] || reason)}">TEST · ${escapeHtml(TEST_LABELS[reason] || reason)}</span>`;
 const NOTIF_LABELS = { granted: 'izin verdi', denied: 'reddetti', skipped: 'şimdi değil', already: 'zaten açıktı', blocked: 'ayarlardan kapalı' };
 const WHERE_LABELS = { onboarding: 'Onboarding', home: 'Ana sayfa kartı', profile: 'Profil' };
 let funnelDays = 30;
@@ -800,7 +822,9 @@ function funnelRow(name, sub, n, base, prev, after) {
 
 function renderFunnel(f) {
   const base = Number(f.cohort) || 0;
-  $('funnelNote').textContent = base ? `· ${nf.format(base)} yeni kurulum` : '· henüz veri yok';
+  const tests = Number(f.test_installs) || 0;
+  const testNote = tests ? (f.include_test ? ` · ${nf.format(tests)} test dahil` : ` · ${nf.format(tests)} test kurulumu sayılmadı`) : '';
+  $('funnelNote').textContent = (base ? `· ${nf.format(base)} yeni kurulum` : '· henüz veri yok') + testNote;
   $('funnelStats').innerHTML = [
     statCard(nf.format(base), 'Yeni kurulum', '', 'var(--pink)'),
     statCard('%' + pct(f.completed, base), 'Onboarding bitti', `${nf.format(f.completed)} kişi`),
@@ -882,10 +906,33 @@ function renderFunnel(f) {
         <td>${nf.format(v.bought)}${v.installs ? ` <span class="muted">(%${pct(v.bought, v.installs)})</span>` : ''}</td>
       </tr>`).join('')
     : `<tr><td colspan="4" class="muted">Bu aralıkta paywall gösterimi yok.</td></tr>`;
+
+  const d = f.paywall_detail || {};
+  const chip = (label, n, note) => `<span class="chipx">${label} <b>${nf.format(Number(n) || 0)}</b>${note ? ` <span class="muted">${note}</span>` : ''}</span>`;
+  const secs = f.paywall_seconds === null || f.paywall_seconds === undefined ? null : Math.round(Number(f.paywall_seconds));
+  $('funnelPaywall').innerHTML = Number(d.installs)
+    ? [
+        chip('Gördü', d.installs, Number(d.hard) ? `(${nf.format(d.hard)} zorunlu)` : ''),
+        chip('Plan değiştirdi', d.switched),
+        chip('Uygulamadan çıktı', d.left, Number(d.returned) ? `(${nf.format(d.returned)} geri döndü)` : ''),
+        chip('Satın almaya bastı', d.started),
+        chip('Vazgeçti', d.cancelled),
+        chip('Hata aldı', d.failed),
+        chip('Satın aldı', d.bought, Number(d.bought) ? `(${nf.format(d.yearly)} yıllık)` : ''),
+        chip('Geri yükledi', d.restored),
+        secs !== null ? `<span class="chipx">Çıkmadan önce ortalama <b>${secs} sn</b></span>` : '',
+      ].join('')
+    : '<span class="muted">Bu aralıkta paywall gösterimi yok.</span>';
+  const fails = Object.entries(f.fail_codes || {}).sort((a, b) => b[1] - a[1]);
+  $('funnelFails').innerHTML = fails.length
+    ? 'Satın alma hataları: ' + fails.map(([c, n]) => `<code>${escapeHtml(c)}</code> ×${nf.format(n)}`).join(' · ')
+    : '';
 }
 
-function renderInstalls(rows) {
-  $('installsCount').textContent = rows.length ? `· son ${rows.length} kurulum` : '';
+function renderInstalls(all) {
+  const rows = showTests() ? all : all.filter((r) => !r.test);
+  const hidden = all.length - rows.length;
+  $('installsCount').textContent = (rows.length ? `· son ${rows.length} kurulum` : '') + (hidden ? ` · ${hidden} test gizli` : '');
   if (!rows.length) {
     $('installs').innerHTML = `<tr><td colspan="9" class="muted">Henüz kayıt yok.</td></tr>`;
     return;
@@ -902,14 +949,18 @@ function renderInstalls(rows) {
       ? (r.is_new ? '<span class="muted">—</span>' : '<span class="muted">önceden bitirmiş</span>')
       : `${r.max_step + 1}. ${escapeHtml((STEP_LABELS[r.max_step] || ['?'])[0])}`;
     const done = r.completed ? ' <span class="tag ok">bitti</span>' : '';
+    // Only a hand-made mark can be taken back; simulators and sandbox buyers are test by nature.
+    const testBtn = !r.test
+      ? `<button class="testbtn" data-test="1" data-install="${escapeHtml(r.install_id)}">Test</button>`
+      : r.test === 'manual' ? `<button class="testbtn" data-test="0" data-install="${escapeHtml(r.install_id)}">Test değil</button>` : '';
     const notif = r.notif
       ? `<span class="tag ${r.notif === 'granted' || r.notif === 'already' ? 'ok' : r.notif === 'skipped' ? '' : 'no'}">${escapeHtml(NOTIF_LABELS[r.notif] || r.notif)}</span>`
       : '<span class="muted">—</span>';
     const pay = Number(r.paywall_views)
       ? `${nf.format(r.paywall_views)}× <div class="muted" style="font-size:11px">${escapeHtml(SOURCE_LABELS[r.paywall_source] || r.paywall_source || '')}</div>`
       : '<span class="muted">—</span>';
-    return `<tr>
-      <td>${who}<div class="muted" style="font-size:11px">${meta}</div></td>
+    return `<tr class="${r.test ? 'istest' : ''}">
+      <td>${who}${r.test ? ' ' + testTag(r.test) : ''}<div class="muted" style="font-size:11px">${meta}</div></td>
       <td>${step}${done}</td>
       <td>${notif}</td>
       <td>${pay}</td>
@@ -917,7 +968,7 @@ function renderInstalls(rows) {
       <td>${nf.format(r.checkins)}</td>
       <td class="muted">${when(r.first_at)}</td>
       <td class="muted">${when(r.last_at)}</td>
-      <td><button class="del" data-install="${escapeHtml(r.install_id)}" data-label="${escapeHtml(r.name || String(r.install_id).slice(0, 8))}">Sil</button></td>
+      <td style="white-space:nowrap">${testBtn}<button class="del" data-install="${escapeHtml(r.install_id)}" data-label="${escapeHtml(r.name || String(r.install_id).slice(0, 8))}">Sil</button></td>
     </tr>`;
   }).join('');
 }
@@ -960,6 +1011,18 @@ async function loadReferrals() {
   }
 }
 
+/* ---------- test marks ---------- */
+async function markTest(btn) {
+  btn.disabled = true;
+  try {
+    await api('/rest/v1/rpc/admin_mark_test', { method: 'POST', body: JSON.stringify({ p_install: btn.dataset.install, p_test: btn.dataset.test === '1' }) });
+    await Promise.all([loadFunnel(), loadStats().catch(() => {})]);
+  } catch (e) {
+    alert('İşaretlenemedi: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
 /* ---------- delete (test accounts, cleanup) ---------- */
 async function deleteRow(btn) {
   const label = btn.dataset.label || '';
@@ -991,22 +1054,38 @@ async function loadFunnel() {
   const country = $('funnelCountry').value || null;
   try {
     const [f, rows] = await Promise.all([
-      api('/rest/v1/rpc/admin_funnel', { method: 'POST', body: JSON.stringify({ p_days: funnelDays, p_platform: platform, p_country: country }) }),
+      api('/rest/v1/rpc/admin_funnel', { method: 'POST', body: JSON.stringify({ p_days: funnelDays, p_platform: platform, p_country: country, p_include_test: showTests() }) }),
       api('/rest/v1/rpc/admin_funnel_installs', { method: 'POST', body: JSON.stringify({ p_limit: 100 }) }),
     ]);
     renderFunnel(f || {});
     renderInstalls(rows || []);
+    api('/rest/v1/rpc/admin_ai_usage', { method: 'POST', body: '{}' })
+      .then((u) => {
+        $('pennyUsage').innerHTML = [
+          `<span class="chipx">Harcama <b>$${Number(u.month_cost || 0).toFixed(2)}</b></span>`,
+          `<span class="chipx">Mesaj <b>${nf.format(u.messages || 0)}</b></span>`,
+          `<span class="chipx">Kullanıcı <b>${nf.format(u.users || 0)}</b></span>`,
+          `<span class="chipx">Bugün <b>${nf.format(u.today_messages || 0)}</b> mesaj</span>`,
+        ].join('');
+      })
+      .catch(() => {
+        $('pennyUsage').innerHTML = '<span class="muted">okunamadı — supabase/penny-chat.sql çalıştırılmalı</span>';
+      });
   } catch (e) {
     $('funnelNote').textContent = '· funnel okunamadı — supabase/funnel.sql çalıştırılmalı';
     $('funnelSteps').innerHTML = `<div class="muted">${escapeHtml(e.message)}</div>`;
   }
 }
 
-function renderUsers(rows) {
-  const pro = rows.filter((u) => u.is_pro === true).length;
+let lastUsers = [];
+function renderUsers(all) {
+  lastUsers = all;
+  const rows = showTests() ? all : all.filter((u) => !u.test);
+  const hidden = all.length - rows.length;
+  const pro = rows.filter((u) => u.is_pro === true && !u.test).length;
   const known = rows.filter((u) => u.is_pro !== null && u.is_pro !== undefined).length;
   $('usersCount').textContent =
-    `· ${rows.length} kişi · ${pro} Pro` + (known < rows.length ? ` · ${rows.length - known} bilinmiyor` : '');
+    `· ${rows.length} kişi · ${pro} Pro` + (known < rows.length ? ` · ${rows.length - known} bilinmiyor` : '') + (hidden ? ` · ${hidden} test gizli` : '');
   if (!rows.length) {
     $('users').innerHTML = `<tr><td colspan="9" class="muted">Henüz kullanıcı yok.</td></tr>`;
     return;
@@ -1023,8 +1102,8 @@ function renderUsers(rows) {
       : '';
     const meta = [u.country ? `${countryFlag(u.country)} ${u.country}` : '', deviceLine(u), u.app_version ? 'v' + u.app_version : '', String(u.id).slice(0, 8)]
       .filter(Boolean).map(escapeHtml).join(' · ');
-    return `<tr>
-      <td>${escapeHtml(u.name || 'Anonim')}<div class="muted" style="font-size:11px">${meta}</div></td>
+    return `<tr class="${u.test ? 'istest' : ''}">
+      <td>${escapeHtml(u.name || 'Anonim')}${u.test ? ' <span class="tag test">TEST</span>' : ''}<div class="muted" style="font-size:11px">${meta}</div></td>
       <td>${badge}${granted}</td>
       <td>${u.challenges}</td>
       <td>${u.checkins}</td>
@@ -1303,6 +1382,10 @@ $('funnelRange').addEventListener('click', (e) => {
 });
 $('funnelPlatform').addEventListener('change', () => loadFunnel());
 $('funnelCountry').addEventListener('change', () => loadFunnel());
+$('funnelTests').addEventListener('change', () => {
+  loadFunnel();
+  renderUsers(lastUsers);
+});
 // Row buttons live in tables that re-render every refresh, so listen on the page.
 document.addEventListener('click', (e) => {
   if (e.target.closest('#proDialog')) return;
@@ -1310,6 +1393,8 @@ document.addEventListener('click', (e) => {
   if (del) deleteRow(del);
   const pro = e.target.closest('button.probtn');
   if (pro) openProDialog(pro);
+  const test = e.target.closest('button.testbtn');
+  if (test) markTest(test);
 });
 $('proDialog').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-days]');
