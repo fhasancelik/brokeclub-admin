@@ -792,13 +792,14 @@ const STEP_LABELS = [
   ['Arkadaş davet', 'challenge oluşturuldu'],
   ['Bildirim izni ekranı', 'izin zaten verilmişse atlanır'],
   ['Davet kodu', 'kodla gelme yolu'],
+  ['Penny tanıtımı', 'onboarding sonu, ücretsiz deneme sohbeti'],
 ];
 const SOURCE_LABELS = {
   onboarding: 'Onboarding · Pro adımı', profile: 'Profil · Pro ol', stats_yearly: 'İstatistik · yıllık kilit',
   challenge_limit: 'Challenge limiti', outfits: 'Kedi kostümleri', sos_limit: 'SOS hakkı bitti',
   sos_limit_sheet: 'SOS limit penceresi', park_limit: 'Park limiti', coach_link: 'Koç · sınırsız linki',
   game_banner: 'Oyun · reklamı kaldır', ad_banner: 'Banner · reklamı kaldır', hard: 'Onboarding sonu · zorunlu',
-  penny_chat: 'Koç · Penny AI sohbet',
+  penny_chat: 'Koç · Penny AI sohbet', penny_demo: 'Onboarding sonu · Penny denemesi',
   unknown: 'Bilinmiyor',
 };
 const TEST_LABELS = { manual: 'elle', simulator: 'simülatör', sandbox: 'sandbox alım' };
@@ -855,6 +856,8 @@ function renderFunnel(f) {
     rows.push('<div class="fsep"></div>');
     rows.push(funnelRow('Onboarding tamamlandı', 'arkadaş adımı geçildi', Number(f.completed), base, null, true));
     rows.push(funnelRow('Bildirim izni açık', 'verdi ya da zaten açıktı', Number(f.notif_on), base, null, true));
+    rows.push(funnelRow('Penny tanıtımını gördü', 'onboarding sonu (v1.7.1)', Number(f.penny_intro) || 0, base, null, true));
+    rows.push(funnelRow("Penny'yle konuştu", 'ücretsiz denemede en az 1 mesaj', Number(f.penny_chat) || 0, base, null, true));
     rows.push(funnelRow('İlk check-in', '', Number(f.first_checkin), base, null, true));
     rows.push(funnelRow('Paywall gördü', 'herhangi bir yerden', Number(f.paywall), base, null, true));
     rows.push(funnelRow('Satın aldı', 'deneme dahil', Number(f.bought), base, null, true));
@@ -1066,6 +1069,7 @@ async function loadFunnel() {
           `<span class="chipx">Mesaj <b>${nf.format(u.messages || 0)}</b></span>`,
           `<span class="chipx">Kullanıcı <b>${nf.format(u.users || 0)}</b></span>`,
           `<span class="chipx">Bugün <b>${nf.format(u.today_messages || 0)}</b> mesaj</span>`,
+          `<span class="chipx" title="Onboarding sonundaki ücretsiz Penny denemesi">Deneme <b>$${Number(u.demo_cost || 0).toFixed(2)}</b> · ${nf.format(u.demo_messages || 0)} mesaj · ${nf.format(u.demo_users || 0)} kişi</span>`,
         ].join('');
       })
       .catch(() => {
