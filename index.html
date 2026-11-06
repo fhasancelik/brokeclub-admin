@@ -564,6 +564,16 @@
       <label for="announcement">Duyuru (boş bırak = duyuru yok)</label>
       <textarea id="announcement" placeholder="Uygulama açılınca bir kez gösterilir."></textarea>
     </div>
+    <div class="field" style="margin-top:14px">
+      <label>Paywall üye yazısı</label>
+      <div class="muted" id="socialMissing" style="font-size:12px;margin-bottom:6px">Boş bırakılan dilde uygulamanın kendi metni görünür. <b>{count}</b> yazarsan gerçek üye sayısıyla değişir. Kaydedince birkaç dakika içinde uygulamaya yansır.</div>
+      <div class="field"><label for="social_tr">Türkçe</label><input id="social_tr" placeholder="Broke Club'da biriktiren {count} kişiye katıl"></div>
+      <div class="field"><label for="social_en">İngilizce</label><input id="social_en" placeholder="Join {count} people saving with Broke Club"></div>
+      <div class="field"><label for="social_de">Almanca</label><input id="social_de" placeholder="varsayılan metin"></div>
+      <div class="field"><label for="social_es">İspanyolca</label><input id="social_es" placeholder="varsayılan metin"></div>
+      <div class="field"><label for="social_fr">Fransızca</label><input id="social_fr" placeholder="varsayılan metin"></div>
+      <div class="field"><label for="social_ar">Arapça</label><input id="social_ar" placeholder="varsayılan metin"></div>
+    </div>
     <div class="row" style="margin-top:12px">
       <button class="ghost" id="forceLatestBtn">Son sürümü zorunlu yap</button>
     </div>
@@ -621,6 +631,7 @@ const ADS_FIELDS = {
   ads_ri_daily_cap: ['rewarded_interstitial.daily_cap', 'num'], ads_ri_coins: ['rewarded_interstitial.coins', 'num'],
 };
 let adsColumnPresent = false;
+const SOCIAL_LANGS = ['tr', 'en', 'de', 'es', 'fr', 'ar'];
 /* Columns the live app_config row actually has: an older database may lack some. */
 let configColumns = new Set();
 const getPath = (o, path) => path.split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : undefined), o);
@@ -1181,6 +1192,9 @@ function fillConfig(c) {
   });
   FLAG_FIELDS.forEach((f) => { $(f).checked = Boolean(c[f]); });
   adsColumnPresent = Object.prototype.hasOwnProperty.call(c, 'ads');
+  const hasSocial = configColumns.has('paywall_social');
+  SOCIAL_LANGS.forEach((l) => { const el = $('social_' + l); el.value = (c.paywall_social || {})[l] ?? ''; el.disabled = !hasSocial; });
+  if (!hasSocial) $('socialMissing').textContent = 'Veritabanında sütun yok: supabase/admin.sql çalıştırılmalı.';
   $('adsMissing').classList.toggle('hidden', adsColumnPresent);
   fillAds(c.ads);
   syncMaintenanceUi();
@@ -1220,6 +1234,10 @@ async function saveConfig() {
   TEXT_FIELDS.filter((f) => configColumns.has(f)).forEach((f) => { payload[f] = $(f).value.trim(); });
   FLAG_FIELDS.filter((f) => configColumns.has(f)).forEach((f) => { payload[f] = $(f).checked; });
   if (adsColumnPresent) payload.ads = readAds();
+  if (configColumns.has('paywall_social')) {
+    payload.paywall_social = {};
+    SOCIAL_LANGS.forEach((l) => { const v = $('social_' + l).value.trim(); if (v) payload.paywall_social[l] = v; });
+  }
 
   if (payload.maintenance && !confirm('Bakım modu AÇILIYOR. Uygulama tüm kullanıcılara kapanacak. Emin misin?')) return;
 
