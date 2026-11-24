@@ -826,13 +826,17 @@ const STEP_LABELS = [
   ['İsim', ''],
   ['Harcama kaçağı', 'kahve, yemek… + haftalık tutar'],
   ['Hayal / hedef', ''],
-  ['Yıllık hesap', '"yılda şu kadar kaçırıyorsun"'],
+  ['Hesap ekranı', 'v4: "her ay cebinde kalır"'],
   ['Pro teklifi', 'paywall kapalıysa atlanır'],
   ['Challenge seçimi', ''],
   ['Arkadaş davet', 'challenge oluşturuldu'],
   ['Bildirim izni ekranı', 'izin zaten verilmişse atlanır'],
   ['Davet kodu', 'kodla gelme yolu'],
   ['Penny tanıtımı', 'onboarding sonu, ücretsiz deneme sohbeti'],
+  // Onboarding v4 (24 Kas 2026): ids 11–13; the SQL returns steps in screen order.
+  ['Gelir + maaş günü', 'atlanabilir (v4)'],
+  ['Sabit giderler', 'gelir girildiyse (v4)'],
+  ['Planın hazır', '6 sn hazırlık + plan kartı (v4)'],
 ];
 const SOURCE_LABELS = {
   onboarding: 'Onboarding · Pro adımı', profile: 'Profil · Pro ol', stats_yearly: 'İstatistik · yıllık kilit',
@@ -955,10 +959,10 @@ function renderFunnel(f) {
     $('funnelSteps').innerHTML = `<div class="muted">Bu aralıkta ilk kez açılan kurulum yok. Funnel verisi v1.7 güncellemesi kullanıcılara ulaşınca dolmaya başlar.</div>`;
   } else {
     let prev = null;
-    const rows = (f.steps || []).map((s) => {
+    const rows = (f.steps || []).map((s, i) => {
       const [name, sub] = STEP_LABELS[s.step] || [`Adım ${s.step}`, ''];
       const extra = s.step === 5 ? ` · gören: ${nf.format(f.saw_pro)}` : '';
-      const row = funnelRow(`${s.step + 1}. ${name}`, sub + extra, Number(s.installs), stepBase, prev, false);
+      const row = funnelRow(`${i + 1}. ${name}`, sub + extra, Number(s.installs), stepBase, prev, false);
       prev = Number(s.installs);
       return row;
     });
